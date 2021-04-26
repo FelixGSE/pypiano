@@ -9,10 +9,9 @@ from mingus.containers import Note, NoteContainer, Bar, Track
 from mingus.midi.fluidsynth import FluidSynthSequencer
 from mingus.midi import pyfluidsynth as fs
 
-from typing import Union, List
+from typing import Union
 from pathlib import Path
 from .keyboard import PianoKeyboard, PianoKey
-from .decorators import record
 from .utils import PianoUtils
 
 DEFAULT_SOUND_FONTS = pkg_resources.resource_filename(
@@ -164,46 +163,6 @@ class Piano(FluidSynthSequencer):
             )
 
         self.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[self.instrument], bank=0)
-
-    @record
-    def play_note(self, note: Union[Note, str],
-                  recording_file: Union[str, None] = None,
-                  seconds: int = 4,
-                  stop_recording=True) -> None:
-        """
-
-        """
-        self.play_Note(note)
-
-    @record
-    def play_note_container(self, note_container: Union[NoteContainer, List[Note], List[str]],
-                            recording_file: Union[str, None] = None,
-                            seconds: int = 4,
-                            stop_recording=True) -> None:
-        """
-
-        """
-        self.play_NoteContainer(note_container)
-
-    @record
-    def play_note_container(self, note_container: Union[NoteContainer, List[Note], List[str]],
-                            recording_file: Union[str, None] = None,
-                            seconds: int = 4,
-                            stop_recording=True) -> None:
-        """
-
-        """
-        self.play_NoteContainer(note_container)
-
-    @record
-    def play_bar(self, bar: Union[Bar, List[Note], List[str]],
-                 recording_file: Union[str, None] = None,
-                 seconds: int = 4,
-                 stop_recording=True) -> None:
-        """
-
-        """
-        self.play_Bar(bar)
 
     def play(self,
              notes: Union[str, Note, NoteContainer, Bar, Track, PianoKey],
