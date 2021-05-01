@@ -95,3 +95,4 @@ ENV/
 .DS_Store
 .direnv
 .envrc
+python_interpreter_defaults
