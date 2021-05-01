@@ -1,31 +1,23 @@
 # -*- coding: utf-8 -*-
-
 from setuptools import setup
 
-
-with open('README.rst') as f:
+with open("README.md") as f:
     readme = f.read()
 
-with open('LICENSE') as f:
-    license = f.read()
+with open("requirements.txt") as f:
+    requirements = f.read()
 
 setup(
-    name='pyano',
-    version='0.1.0',
-    description='Basic piano emulation',
+    name="pyano",
+    version="0.1.0",
+    description="Library to programmatically play piano",
     long_description=readme,
-    author='FelixGSE',
-    author_email='',
-    url='https://github.com/FelixGSE/pyano',
-    license=license,
-    packages=['pyano'],
-    package_dir={'pyano': 'pyano'},
-    package_data={'pyano': ['sound_fonts/*']},
-    install_requires=[
-      "mingus==0.6.1",
-      "numpy==1.20.2",
-      "sf2utils==0.9.0",
-      "requests==2.25.1"
-     ]
+    author="FelixGSE",
+    author_email="",
+    url="https://github.com/FelixGSE/pyano",
+    license="MIT",
+    packages=["pyano"],
+    package_dir={"pyano": "pyano"},
+    package_data={"pyano": ["sound_fonts/*"]},
+    install_requires=requirements,
 )
-

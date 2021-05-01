@@ -2,3 +2,8 @@ mingus==0.6.1
 numpy==1.20.2
 sf2utils==0.9.0
 requests==2.25.1
+tqdm==4.60.0
+tox==3.23.0
+flake8==3.9.1
+pyflakes==2.3.1
+pytest==6.2.3
