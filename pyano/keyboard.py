@@ -58,16 +58,6 @@ class PianoKey(object):
             self.key_index,
         )
 
-    def __str__(self) -> str:
-        return "{0}(first_identity={1},second_identity={2},octave={3},key_color={4},key_index={5})".format(
-            self.__class__.__name__,
-            self.first_identity,
-            self.second_identity,
-            self.octave,
-            self.key_color,
-            self.key_index,
-        )
-
     def __getitem__(self, key: Union[int, str]) -> Union[int, str]:
         """"""
         if key == 0:
@@ -148,27 +138,6 @@ class PianoKey(object):
         """"""
         return self.get_as_note().to_hertz()
 
-    def get_full_name_as_tts(self, conjunction: str = "or") -> str:
-        """"""
-        first_as_tts = self._accidental_to_text(self.first_identity)
-        if self.second_identity is None:
-            tts_text = "{name} {octave}".format(name=first_as_tts, octave=self.octave)
-        else:
-            second_as_tts = self._accidental_to_text(self.second_identity)
-            tts_text = (
-                "{fist_name} {octave} {conjunction} {second_name} {octave}".format(
-                    fist_name=first_as_tts,
-                    conjunction=conjunction,
-                    octave=self.octave,
-                    second_name=second_as_tts,
-                )
-            )
-        return tts_text
-
-    def _accidental_to_text(self, input_str: str) -> str:
-        """"""
-        return input_str.replace("#", " Sharp").replace("b", " Flat")
-
 
 class PianoKeyboard(object):
     """Class representing a 88 key piano keyboard"""
@@ -179,7 +148,7 @@ class PianoKeyboard(object):
 
     def __init__(self) -> None:
         """"""
-        self._keyboard = self._init_keyboard()
+        self._keyboard = PianoKeyboard._init_keyboard()
 
     def __repr__(self) -> str:
         return "{0}(keys={1},white_keys={2},black_keys={3},first_key={4},last_key={5})".format(
@@ -191,18 +160,8 @@ class PianoKeyboard(object):
             self._keyboard.get(87).full_note_string,
         )
 
-    def __str__(self) -> str:
-        return "{0}(keys={1},white_keys={2},black_keys={3},first_key={4},last_key={5})".format(
-            self.__class__.__name__,
-            self.NUMBER_OF_KEYS,
-            self.NUMBER_OF_WHITE_KEYS,
-            self.NUMBER_OF_BLACK_KEYS,
-            self._keyboard.get(0).full_note_string,
-            self._keyboard.get(87).full_note_string,
-        )
-
     def __getitem__(self, key: Union[int, str]) -> Union[PianoKey, int]:
-        """Defines indexing behaviour for PianoKeyboard objects
+        """Defines indexing behavior for PianoKeyboard objects
 
         You can pass in an integer referring to the key index on a piano keyboard from left to right to receive
         the corresponding PianoKey object. Alternatively, you can pass in a string indicating a note to receive the
@@ -213,7 +172,7 @@ class PianoKeyboard(object):
                  <NOTE_NAME><ACCIDENTAL>-<OCTAVE>, so for example C-1, A#-1, Bb-2.
 
         Returns:
-            PianioKey object if key is an integer or an integer between 0 and 87 if key is a note string.
+            PianoKey object if key is an integer or an integer between 0 and 87 if key is a note string.
 
         Raises:
             IndexError
@@ -229,6 +188,7 @@ class PianoKeyboard(object):
                 )
             return self._keyboard[key]
         else:
+
             if key not in self.distinct_key_names:
                 raise IndexError(
                     "{0} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-8"
@@ -248,12 +208,15 @@ class PianoKeyboard(object):
     def __contains__(self, item: Union[str, Note]) -> bool:
         """"""
         if isinstance(item, Note):
-            note_name = PianoUtils.note_to_string(item)
-            return note_name in self.distinct_key_names
-        else:
-            return item in self.distinct_key_names
+            item = PianoUtils.note_to_string(item)
+        return item in self.distinct_key_names
 
-    def _init_keyboard(self) -> Dict[int, PianoKey]:
+    def __len__(self):
+        """"""
+        return len(self._keyboard)
+
+    @staticmethod
+    def _init_keyboard() -> Dict[int, PianoKey]:
         """"""
         raw_piano_keyboard = []
         for idx in range(10):
@@ -270,17 +233,6 @@ class PianoKeyboard(object):
             kb.update({index: key})
 
         return kb
-
-    def get_key_by_index(self, key: int) -> PianoKey:
-        """"""
-        if not 0 <= key <= 87:
-            raise IndexError(
-                "There are only 88 keys on a piano. key must be an integer between 0 and 87. Got {0}".format(
-                    key
-                )
-            )
-
-        return self._keyboard[key]
 
     @property
     def distinct_key_names(self) -> set[str]:
