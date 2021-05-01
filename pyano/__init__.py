@@ -1,3 +1,3 @@
-__all__ = [
-    "pyano"
-]
+from .piano import Piano
+
+__all__ = ["pyano"]
