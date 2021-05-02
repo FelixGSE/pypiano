@@ -22,8 +22,8 @@ jobs:
         run: pip install -r requirements.txt
       - name: Run Tox
         run: |
-          apt-get update
-          apt-get install -y fluidsynth
+          sudo apt-get update
+          sudo apt-get install -y fluidsynth
           tox -e "py-{format,lint,unit,mypy}"
   make-github-release:
     name: Create Release on Github
