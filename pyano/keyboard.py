@@ -261,7 +261,7 @@ class PianoKeyboard(object):
                 raw_piano_keyboard.append(current_key)
 
         kb = {}
-        for index, key in enumerate(raw_piano_keyboard[21:109]):
+        for index, key in enumerate(raw_piano_keyboard[9:97]):
             key.key_index = index
             kb.update({index: key})
 
