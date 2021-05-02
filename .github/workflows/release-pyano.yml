@@ -24,7 +24,7 @@ jobs:
           sudo apt-get install -y fluidsynth
           pip install -r requirements.txt
       - name: Run Tox
-        run: tox -e "py-{format,lint,unit,mypy}"
+        run: tox
   make-github-release:
     name: Create Release on Github
     needs: tests
