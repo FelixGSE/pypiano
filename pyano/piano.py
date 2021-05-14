@@ -54,7 +54,7 @@ logger = logging.getLogger("pyano")
 logger.addHandler(logging.NullHandler())
 
 
-class Piano(FluidSynthSequencer):
+class Piano(object):
     """Class representing a Piano with 88 keys based on mingus
 
     Class to programmatically play piano via audio output or record music to a wav file. Abstraction layer on top of
@@ -79,7 +79,7 @@ class Piano(FluidSynthSequencer):
         instrument: Union[str, int] = "Acoustic Grand Piano",
     ) -> None:
 
-        super().__init__()
+        self.__fluid_synth_sequencer = FluidSynthSequencer()
 
         self._sound_fonts_path = Path(sound_fonts_path)
         # Set variable to track if sound fonts are loaded
@@ -108,9 +108,11 @@ class Piano(FluidSynthSequencer):
         logger.debug("Unloading current active sound fonts from file: {0}".format(self._sound_fonts_path))
 
         if self._sound_fonts_loaded:
-            self.fs.sfunload(self.sfid)
+            self.__fluid_synth_sequencer.fs.sfunload(self.__fluid_synth_sequencer.sfid)
         else:
             logger.debug("No active sound fonts")
+
+        self._sound_fonts_path = None
 
     def load_sound_fonts(self, sound_fonts_path: Union[str, Path]) -> None:
         """Load sound fonts from a given path"""
@@ -120,7 +122,7 @@ class Piano(FluidSynthSequencer):
 
             self._unload_sound_fonts()
 
-        if not self.load_sound_font(str(sound_fonts_path)):
+        if not self.__fluid_synth_sequencer.load_sound_font(str(sound_fonts_path)):
             raise Exception("Could not load sound fonts from {file}".format(file=sound_fonts_path))
 
         self._sound_fonts_loaded = True
@@ -133,7 +135,8 @@ class Piano(FluidSynthSequencer):
 
         This method in conjunction with self._stop_audio_output should be used to safely start and stop audio output,
         for example when there is switch between audio output and recording audio to a file (check doc string of
-        self._stop_audio_output for more details why this necessary)
+        self._stop_audio_output for more details why this necessary). This method replaces
+        mingus.midi.fluidsynth.FluidSynthSequencer
         """
 
         logger.debug("Starting audio output using driver: {driver}".format(driver=self._current_audio_driver))
@@ -147,11 +150,11 @@ class Piano(FluidSynthSequencer):
                 )
             )
         if not self._audio_driver_is_active:
-            self.start_audio_output(self._current_audio_driver)
+            self.__fluid_synth_sequencer.start_audio_output(self._current_audio_driver)
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
-            self.fs.program_reset()
+            self.__fluid_synth_sequencer.fs.program_reset()
             self._audio_driver_is_active = True
         else:
             logger.debug("Audio output seems to be already active")
@@ -181,11 +184,11 @@ class Piano(FluidSynthSequencer):
         and enables switching between recording to a file and playing audio output without initializing a new object.
         """
         if self._audio_driver_is_active:
-            globalfs.delete_fluid_audio_driver(self.fs.audio_driver)
+            globalfs.delete_fluid_audio_driver(self.__fluid_synth_sequencer.fs.audio_driver)
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
-            self.fs.program_reset()
+            self.__fluid_synth_sequencer.fs.program_reset()
             self._audio_driver_is_active = False
         else:
             logger.debug("Audio output seems to be already inactive")
@@ -217,12 +220,12 @@ class Piano(FluidSynthSequencer):
                     )
                 )
 
-            self.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
+            self.__fluid_synth_sequencer.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
             self.instrument = instrument
 
         else:
 
-            self.set_instrument(channel=1, instr=instrument, bank=0)
+            self.__fluid_synth_sequencer.set_instrument(channel=1, instr=instrument, bank=0)
             self.instrument = instrument
 
     def play(
@@ -261,15 +264,17 @@ class Piano(FluidSynthSequencer):
                 )
             )
             self._stop_audio_output()
-            self.start_recording(recording_file)
+            self.__fluid_synth_sequencer.start_recording(recording_file)
             self._play_music_container(music_container)
 
             WAV_SAMPLE_FREQUENCY = 44100
 
-            samples = globalfs.raw_audio_string(self.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)))
-            self.wav.writeframes(bytes(samples))
+            samples = globalfs.raw_audio_string(
+                self.__fluid_synth_sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY))
+            )
+            self.__fluid_synth_sequencer.wav.writeframes(bytes(samples))
 
-            self.wav.close()
+            self.__fluid_synth_sequencer.wav.close()
 
             logger.info("Finished recording to {recording_file}".format(recording_file=recording_file))
 
@@ -295,21 +300,21 @@ class Piano(FluidSynthSequencer):
         )
 
         if isinstance(music_container, str):
-            self.play_Note(Note(music_container))
+            self.__fluid_synth_sequencer.play_Note(Note(music_container))
         elif isinstance(music_container, int):
             # FIX ME: Added another type check to fix mypy error
             piano_key = self.keyboard[music_container]
             if isinstance(piano_key, int):
                 raise TypeError("This should not happen")
-            self.play_Note(piano_key.first_note)
+            self.__fluid_synth_sequencer.play_Note(piano_key.first_note)
         elif isinstance(music_container, Note):
-            self.play_Note(music_container)
+            self.__fluid_synth_sequencer.play_Note(music_container)
         elif isinstance(music_container, NoteContainer):
-            self.play_NoteContainer(music_container)
+            self.__fluid_synth_sequencer.play_NoteContainer(music_container)
         elif isinstance(music_container, Bar):
-            self.play_Bar(music_container)
+            self.__fluid_synth_sequencer.play_Bar(music_container)
         elif isinstance(music_container, Track):
-            self.play_Track(music_container)
+            self.__fluid_synth_sequencer.play_Track(music_container)
 
         logger.debug(
             "Done playing music container: {music_container} of type: {container_type}".format(
