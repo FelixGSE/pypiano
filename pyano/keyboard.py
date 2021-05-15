@@ -292,6 +292,10 @@ class PianoKeyboard(object):
         return set(available_keys)
 
     @property
+    def keys(self) -> Dict[int, PianoKey]:
+        return self._keyboard
+
+    @property
     def white_keys(self) -> Dict[int, PianoKey]:
         """Return a sub dictionary of all black keys from keyboard"""
         return {key: piano_key for key, piano_key in self._keyboard.items() if "white" in piano_key.key_color}

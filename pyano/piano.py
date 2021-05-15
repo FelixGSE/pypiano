@@ -98,22 +98,6 @@ class Piano(object):
         # Initialize a piano keyboard
         self.keyboard = PianoKeyboard()
 
-    def _unload_sound_fonts(self) -> None:
-        """Unload a given sound font file
-
-        Safely unload current sound font file. Method controls if a sound font file is already loaded via
-        self._sound_fonts_loaded.
-        """
-
-        logger.debug("Unloading current active sound fonts from file: {0}".format(self._sound_fonts_path))
-
-        if self._sound_fonts_loaded:
-            self.__fluid_synth_sequencer.fs.sfunload(self.__fluid_synth_sequencer.sfid)
-        else:
-            logger.debug("No active sound fonts")
-
-        self._sound_fonts_path = None
-
     def load_sound_fonts(self, sound_fonts_path: Union[str, Path]) -> None:
         """Load sound fonts from a given path"""
         logger.debug("Attempting to load sound fonts from {file}".format(file=sound_fonts_path))
@@ -129,6 +113,22 @@ class Piano(object):
         self._sound_fonts_path = Path(sound_fonts_path)
 
         logger.debug("Successfully initialized sound fonts from {file_path}".format(file_path=sound_fonts_path))
+
+    def _unload_sound_fonts(self) -> None:
+        """Unload a given sound font file
+
+        Safely unload current sound font file. Method controls if a sound font file is already loaded via
+        self._sound_fonts_loaded.
+        """
+
+        logger.debug("Unloading current active sound fonts from file: {0}".format(self._sound_fonts_path))
+
+        if self._sound_fonts_loaded:
+            self.__fluid_synth_sequencer.fs.sfunload(self.__fluid_synth_sequencer.sfid)
+            self._sound_fonts_loaded = False
+            self._sound_fonts_path = None
+        else:
+            logger.debug("No active sound fonts")
 
     def _start_audio_output(self) -> None:
         """Private method to start audio output
@@ -224,6 +224,9 @@ class Piano(object):
             self.instrument = instrument
 
         else:
+
+            if isinstance(instrument, str):
+                raise TypeError("When using non default sound fonts you must pass an integer for instrument parameter")
 
             self.__fluid_synth_sequencer.set_instrument(channel=1, instr=instrument, bank=0)
             self.instrument = instrument
