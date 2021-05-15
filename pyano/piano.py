@@ -279,6 +279,18 @@ class Piano(object):
 
             self.__fluid_synth_sequencer.wav.close()
 
+            # It seems we have to delete the wav attribute after recording in order to enable switching between
+            # audio output and recording for all music containers. The
+            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Bar and
+            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Track use the
+            # mingus.midi.fluidsynth.FluidSynthSequencer.sleep methods internally which is for some reason also used
+            # to record in mingus.
+            # See also my issue in the mingus repository: https://github.com/bspaans/python-mingus/issues/77
+            # When wav attribute is present sleep tries to write to the wave file and if not the method just sleeps.
+            # If we do not delete the wav attribute it is still there as None and play_Bar tries to write to the file
+            # resulting in AttributeError: 'NoneType' object has no attribute 'write'
+            delattr(self.__fluid_synth_sequencer, "wav")
+
             logger.info("Finished recording to {recording_file}".format(recording_file=recording_file))
 
     def _play_music_container(
