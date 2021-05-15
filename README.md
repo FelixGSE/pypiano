@@ -1,9 +1,9 @@
 # Pyano
 
-Pyano is a python package to programmatically play piano. It is an easy to use abstraction layer on top of the
-[python-mingus](http://bspaans.github.io/python-mingus/index.html) package providing a simple to use interface to play mingus music containers, such as Notes,
+Pyano is a python library to programmatically play piano. It is an easy-to-use abstraction layer on top of the
+[python-mingus](http://bspaans.github.io/python-mingus/index.html) package providing a simple user interface to play mingus music containers, such as Notes,
 NoteContainers, Bars and Tracks. It bundles a default sound fonts file to enable playing and recording audio out
-of the box with. By default 8 different pianos are available. It allows to play Piano via audio output or recording music to wav files.
+of the box. By default, 8 different pianos are available. It allows playing Piano via audio output or recording music to wav files.
 
 ## Installation
 
