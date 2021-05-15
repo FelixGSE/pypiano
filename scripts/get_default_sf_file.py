@@ -105,11 +105,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
-from sf2utils.sf2parse import Sf2File
-
-with open("./pyano/sound_fonts/FluidR3_GM.sf2", "rb") as sf2_file:
-    sf2 = Sf2File(sf2_file)
-
-len(sf2.instruments)
