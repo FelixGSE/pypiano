@@ -9,8 +9,8 @@ class KeyboardTests(unittest.TestCase):
     def setUp(self) -> None:
         self.keyboard = PianoKeyboard()
 
-    def test_init_keyboard(self):
-        self.assertEqual(len(PianoKeyboard._create_keyboard_dict()), 88)
+    def test_keys(self):
+        self.assertEqual(len(self.keyboard.keys), 88)
 
     def test_white_keys(self):
         self.assertEqual(len(self.keyboard.white_keys), 52)
