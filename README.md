@@ -1,24 +1,24 @@
-# Pyano
+# PyPiano
 
-Pyano is a python library to programmatically play piano. It is an easy-to-use abstraction layer on top of the
+PyPiano is a python library to programmatically play piano. It is an easy-to-use abstraction layer on top of the
 [python-mingus](http://bspaans.github.io/python-mingus/index.html) package providing a simple user interface to play mingus music containers, such as Notes,
 NoteContainers, Bars and Tracks. It bundles a default sound fonts file to enable playing and recording audio out
 of the box. By default, 8 different pianos are available. It allows playing Piano via audio output or recording music to wav files.
 
 ## Installation
 
-For Pyano to work you need [Fluidsynth](https://www.fluidsynth.org/) to be installed. Please check the
-Fluidsynth website on how to install Fluidsynth on your system. You can install Pyano using pip:
+For PyPiano to work you need [Fluidsynth](https://www.fluidsynth.org/) to be installed. Please check the
+Fluidsynth website on how to install Fluidsynth on your system. You can install PyPiano using pip:
 
 ```bash
-pip install git+https://github.com/FelixGSE/pyano.git
+pip install git+https://github.com/FelixGSE/pypiano.git
 ```
 
 ## Usage
 
 ```python
-from pyano import Piano
-from mingus.containers import Note, NoteContainer, Bar, Track
+from pypiano import Piano
+from mingus.containers import Note
 
 p = Piano()
 
@@ -44,7 +44,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 Please make sure to update tests as appropriate.
 
 Note that the sound fonts are checked in as [Git large file](https://git-lfs.github.com/). If you have `git-lfs` installed
-the bundled sound font files in `pyano/sound_fonts/FluidR3_GM.sf2` should be cloned automatically. If not, you should install
+the bundled sound font files in `pypiano/sound_fonts/FluidR3_GM.sf2` should be cloned automatically. If not, you should install
 `git-lfs` and fetch them after.
 
 ## Know issues
@@ -53,5 +53,5 @@ contains 194 instruments of which only 8 are used within this project, thus maki
 from the shipped sound fonts to reduce package size. It is an open task to find out how to safely remove unused instruments.
 
 ## License
-- Pyano is distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pyano/blob/master/licenses/LICENSE-Pyano)
-- Default sound fonts are distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pyano/blob/master/licenses/LICENSE-FluidR3_GM_sf2.txt)
+- PyPiano is distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-PyPiano)
+- Default sound fonts are distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-FluidR3_GM_sf2.txt)

@@ -20,7 +20,7 @@ from .utils import (
     track_to_note_string_list,
 )
 
-DEFAULT_SOUND_FONTS = Path(pkg_resources.resource_filename("pyano", "/sound_fonts/FluidR3_GM.sf2"))
+DEFAULT_SOUND_FONTS = Path(pkg_resources.resource_filename("pypiano", "/sound_fonts/FluidR3_GM.sf2"))
 
 # Valid audio driver are taken from docstring of mingus.midi.fluidsynth.FluidSynthSequencer.start_audio_output() method
 # https://github.com/bspaans/python-mingus/blob/f131620eb7353bcfbf1303b24b951a95cad2ac20/mingus/midi/fluidsynth.py#L57
@@ -50,7 +50,7 @@ DEFAULT_INSTRUMENTS = {
 }
 
 # Initialize module logger
-logger = logging.getLogger("pyano")
+logger = logging.getLogger("pypiano")
 logger.addHandler(logging.NullHandler())
 
 
@@ -61,7 +61,7 @@ class Piano(object):
     mingus.midi.fluidsynth.FluidSynthSequencer.
 
     Attributes
-        sound_fonts_path : Optional string or Path object pointing to a *.sf2 files. Pyano ships sound fonts by default
+        sound_fonts_path: Optional string or Path object pointing to a *.sf2 files. PyPiano ships sound fonts by default
         audio_driver: Optional argument specifying audio driver to use. Following audio drivers could be used:
             (None, "alsa", "oss", "jack", "portaudio", "sndmgr", "coreaudio","Direct Sound", "dsound", "pulseaudio").
             Not all drivers will be available for every platform
@@ -196,7 +196,7 @@ class Piano(object):
     def load_instrument(self, instrument: Union[str, int]) -> None:
         """Method to change the piano instrument
 
-        Load an instrument that should be used for playing or recording music. If Pyano default sound fonts are used
+        Load an instrument that should be used for playing or recording music. If PyPiano default sound fonts are used
         you can choose one of the following instruments:
             ("Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
              "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi")

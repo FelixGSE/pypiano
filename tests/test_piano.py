@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import unittest
 from unittest.mock import patch
-from pyano import piano
+from pypiano import piano
 from pathlib import Path
 from .mock_objects import MockFluidSynthSequencer
 from mingus.containers import Note, NoteContainer, Bar, Track
 
 
-@patch("pyano.piano.FluidSynthSequencer", return_value=MockFluidSynthSequencer())
+@patch("pypiano.piano.FluidSynthSequencer", return_value=MockFluidSynthSequencer())
 class PianoTests(unittest.TestCase):
     """Basic test cases."""
 
@@ -48,7 +48,7 @@ class PianoTests(unittest.TestCase):
         p._current_audio_driver = "SomeFantasyDriverName"
         self.assertRaises(ValueError, p._start_audio_output)
 
-    @patch("pyano.piano.globalfs.delete_fluid_audio_driver", return_value=None)
+    @patch("pypiano.piano.globalfs.delete_fluid_audio_driver", return_value=None)
     def test_stop_audio_output(self, mock_fluid_synth_sequencer, mock_delete_fluid_audio_driver) -> None:
         p = piano.Piano()
         # Start with empty audio driver
@@ -78,7 +78,7 @@ class PianoTests(unittest.TestCase):
         p.load_instrument(instrument=new_instrument)
         self.assertEqual(p.instrument, new_instrument)
 
-    @patch("pyano.piano.globalfs.raw_audio_string", return_value=1)
+    @patch("pypiano.piano.globalfs.raw_audio_string", return_value=1)
     def test_play(self, mock_fluid_synth_sequencer, mock_raw_audio_string):
 
         p = piano.Piano()

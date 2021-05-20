@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import unittest
-from pyano.keyboard import PianoKeyboard
+from pypiano.keyboard import PianoKeyboard
 
 
 class KeyboardTests(unittest.TestCase):

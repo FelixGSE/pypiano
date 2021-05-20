@@ -1,3 +1,3 @@
 from .piano import Piano
 
-__all__ = ["pyano"]
+__all__ = ["pypiano"]
