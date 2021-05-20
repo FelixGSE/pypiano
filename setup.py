@@ -12,6 +12,7 @@ setup(
     version="0.1.0",
     description="Library to programmatically play piano",
     long_description=readme,
+    long_description_content_type="text/markdown",
     author="FelixGSE",
     author_email="",
     url="https://github.com/FelixGSE/pypiano",
