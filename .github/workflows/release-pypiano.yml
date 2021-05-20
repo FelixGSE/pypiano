@@ -1,4 +1,4 @@
-name: release-pyano
+name: release-pypiano
 
 on:
   push:

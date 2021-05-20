@@ -18,7 +18,7 @@ PACKAGE_VERSION = 3.1
 FILE_EXTENSION = "orig.tar.gz"
 UNPACK_DIR = "fluid-soundfont-3.1"
 LICENSE_SOURCE_FILE_NAME = "COPYING"
-LICENSE_TARGET_FILE_NAME = "LICENSE-Pyano-FluidR3_GM_sf2.txt"
+LICENSE_TARGET_FILE_NAME = "LICENSE-PyPiano-FluidR3_GM_sf2.txt"
 SOUND_FONT_FILE_NAME = "FluidR3_GM.sf2"
 DOWNLOAD_DIR_NAME = "temp"
 
@@ -84,7 +84,7 @@ def main() -> None:
     )
 
     download_file_path = Path.joinpath(download_dir, tar_file_name)
-    sound_font_target_dir = Path(package_root_path, "pyano/sound_fonts")
+    sound_font_target_dir = Path(package_root_path, "pypiano/sound_fonts")
     download_file(download_url, download_file_path)
 
     unpack_tar(download_file_path, str(download_dir.absolute()))
