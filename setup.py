@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup
+import requests
 
+with open('./pypiano/sound_fonts/FluidR3_GM.sf2', 'w') as f:
+    response = requests.get('https://github.com/FelixGSE/pypiano/raw/master/pypiano/sound_fonts/FluidR3_GM.sf2')
+    f.write(response.content)
+    
 with open("README.md") as f:
     readme = f.read()
 
