@@ -8,7 +8,8 @@ of the box. By default, 8 different pianos are available. It allows playing Pian
 ## Installation
 
 For PyPiano to work you need [Fluidsynth](https://www.fluidsynth.org/) to be installed. Please check the
-Fluidsynth website on how to install Fluidsynth on your system. You can install PyPiano using pip:
+Fluidsynth website on how to install Fluidsynth on your system. Note that you also need to install and set up [git-lfs](https://git-lfs.github.com/)
+before installing PyPiano. You then can install PyPiano from Github using pip:
 
 ```bash
 pip install git+https://github.com/FelixGSE/pypiano.git
