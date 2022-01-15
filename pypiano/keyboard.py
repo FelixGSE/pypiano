@@ -2,7 +2,7 @@
 """
 
 """
-from typing import Union, Dict, Optional
+from typing import Union, Dict, Optional, Set
 from mingus.containers import Note
 from collections import namedtuple
 from .utils import note_to_string
@@ -268,7 +268,7 @@ class PianoKeyboard(object):
         return kb
 
     @property
-    def distinct_key_names(self) -> set[str]:
+    def distinct_key_names(self) -> Set[str]:
         """Get all distinct key names / note names on the piano keyboard
 
         Retrieves a set of distinct notes that can be found an a piano with 88 keys. Returned note names follow the
