@@ -1,3 +1,5 @@
+
+
 # PyPiano
 
 PyPiano is a python library to programmatically play piano. It is an easy-to-use abstraction layer on top of the
@@ -55,4 +57,4 @@ from the shipped sound fonts to reduce package size. It is an open task to find 
 
 ## License
 - PyPiano is distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-PyPiano)
-- Default sound fonts are distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-FluidR3_GM_sf2.txt)
+- Default sound fonts are distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-PyPiano-FluidR3_GM_sf2.txt)
