@@ -6,12 +6,13 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE", "licenses/*"]
 authors = [{ name = "FelixGSE" }]
+requires-python = ">=3.11"
 dependencies = [
-    "mingus==0.6.1",
-    "numpy==1.20.2",
-    "sf2utils==0.9.0",
-    "requests==2.25.1",
-    "tqdm==4.60.0",
+    "mingus>=0.6.1",
+    "numpy>=2.4.6",
+    "requests>=2.34.2",
+    "sf2utils>=1.0.0",
+    "tqdm>=4.70.1",
 ]
 
 [project.urls]
@@ -19,10 +20,11 @@ Homepage = "https://github.com/FelixGSE/pypiano"
 
 [dependency-groups]
 dev = [
-    "tox==3.23.0",
-    "flake8==3.9.1",
-    "pyflakes==2.3.1",
-    "pytest==6.2.3",
+    "black>=26.5.1",
+    "flake8>=7.4.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "tox>=4.64.7",
 ]
 
 [build-system]
