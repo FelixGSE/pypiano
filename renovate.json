@@ -9,6 +9,7 @@
   ],
   "minimumReleaseAge": "3 days",
   "constraintsFiltering": "strict",
+  "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
