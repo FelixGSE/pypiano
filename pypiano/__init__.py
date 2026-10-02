@@ -1,5 +1,5 @@
 """Programmatically play piano on top of mingus and fluidsynth."""
 
-from .piano import Piano
+from pypiano.piano import Piano
 
 __all__ = ["Piano"]

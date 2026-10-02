@@ -9,9 +9,9 @@ from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
-from . import _mingus_compat  # noqa: F401 - patches mingus for numpy >= 2.3
-from .keyboard import PianoKey, PianoKeyboard
-from .utils import (
+from pypiano import _mingus_compat  # noqa: F401 - patches mingus for numpy >= 2.3
+from pypiano.keyboard import PianoKey, PianoKeyboard
+from pypiano.utils import (
     bar_to_note_string_list,
     note_container_to_note_string_list,
     note_to_string,

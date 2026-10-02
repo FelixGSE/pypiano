@@ -5,7 +5,7 @@ from typing import NamedTuple
 
 from mingus.containers import Note
 
-from .utils import note_to_string
+from pypiano.utils import note_to_string
 
 
 class BaseKey(NamedTuple):

@@ -6,8 +6,7 @@ import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 
 from pypiano import piano
-
-from .mock_objects import MockFluidSynthSequencer
+from tests.mock_objects import MockFluidSynthSequencer
 
 
 @patch("pypiano.piano.FluidSynthSequencer", return_value=MockFluidSynthSequencer())

@@ -46,6 +46,10 @@ ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.flake8-tidy-imports]
+# Also flag sibling imports (from . import x); the default only bans parent imports
+ban-relative-imports = "all"
+
 [tool.ruff.lint.per-file-ignores]
 "scripts/**" = ["INP001"] # standalone scripts, not a package
 "tests/**" = [
