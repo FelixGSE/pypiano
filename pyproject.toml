@@ -20,7 +20,9 @@ Homepage = "https://github.com/FelixGSE/pypiano"
 dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
+    "requests>=2.34.2",
     "ruff>=0.16.10",
+    "tqdm>=4.70.1",
     "ty>=0.0.84",
 ]
 
@@ -58,10 +60,6 @@ ban-relative-imports = "all"
     "S101",    # pytest uses assert
     "SLF001",  # tests check private state
 ]
-
-[tool.ty.src]
-# scripts/ declare their own dependencies inline (PEP 723) and do not run in the project environment
-exclude = ["scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
