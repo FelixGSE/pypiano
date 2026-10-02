@@ -31,5 +31,7 @@ jobs:
         env:
           RENOVATE_REPOSITORIES: ${{ github.repository }}
           RENOVATE_ONBOARDING: "false"
+          # Commit as the token's owner instead of Renovate's default address, which belongs to Mend
+          RENOVATE_GIT_AUTHOR: "Renovate Bot <15325844+FelixGSE@users.noreply.github.com>"
           RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
           LOG_LEVEL: ${{ inputs.dry-run && 'debug' || 'info' }}

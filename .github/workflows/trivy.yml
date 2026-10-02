@@ -14,6 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # renovate: datasource=github-releases depName=aquasecurity/trivy
   TRIVY_VERSION: v0.75.0
   # Findings that do not apply, each with its reason
   TRIVY_IGNOREFILE: .trivyignore.yaml

@@ -16,6 +16,18 @@
       "before 6am on the first day of the month"
     ]
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Versions pinned in workflow variables, marked with a # renovate: comment on the line above",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\w+: (?<currentValue>\\S+)"
+      ]
+    }
+  ],
   "packageRules": [
     {
       "description": "pyproject.toml keeps minimum versions; the latest versions go into uv.lock",
