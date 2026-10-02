@@ -19,27 +19,19 @@ from shutil import copyfile, rmtree
 import requests
 from tqdm import tqdm
 
-BASE_URL = "http://deb.debian.org/debian/pool/main/f"
+BASE_URL = "https://deb.debian.org/debian/pool/main/f"
 PACKAGE_NAME = "fluid-soundfont"
 PACKAGE_VERSION = 3.1
 FILE_EXTENSION = "orig.tar.gz"
 UNPACK_DIR = "fluid-soundfont-3.1"
 LICENSE_SOURCE_FILE_NAME = "COPYING"
-LICENSE_TARGET_FILE_NAME = "LICENSE-PyPiano-FluidR3_GM_sf2.txt"
+LICENSE_TARGET_FILE_NAME = "LICENSE-FluidR3_GM_sf2.txt"
 SOUND_FONT_FILE_NAME = "FluidR3_GM.sf2"
 DOWNLOAD_DIR_NAME = "temp"
 REQUEST_TIMEOUT_SECONDS = 30
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
-
-
-def get_latest_package_version(url: str) -> None:
-    """TO DO: Infer latest package version."""
-
-
-def check_signature(file_path: str) -> None:
-    """TO DO: Check signature."""
 
 
 def download_file(url: str, target_dir: str | Path) -> None:
