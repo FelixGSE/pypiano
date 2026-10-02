@@ -1,0 +1,88 @@
+// Unprivileged devcontainer for pypiano.
+// Runs as a non-root user without sudo, with all Linux capabilities dropped
+// and privilege escalation disabled. Python/venv management is done by uv.
+{
+  "name": "pypiano",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "args": {
+      // Pinned uv release; bump deliberately.
+      "UV_VERSION": "0.12.22"
+    }
+  },
+
+  "workspaceFolder": "/workspaces/pypiano",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/pypiano,type=bind,consistency=cached",
+
+  // Hardening: non-root, no capabilities, no setuid/setgid escalation, PID 1 init.
+  "containerUser": "dev",
+  "remoteUser": "dev",
+  "privileged": false,
+  "init": true,
+  "runArgs": [
+    "--cap-drop=ALL",
+    "--security-opt=no-new-privileges:true"
+  ],
+
+  // Persist across rebuilds:
+  //  - the uv cache (downloaded wheels and interpreters)
+  //  - Claude Code config, credentials and session history
+  //  - GitHub CLI auth (gh auth login)
+  "mounts": [
+    "source=pypiano-uv-cache,target=/home/dev/.cache/uv,type=volume",
+    "source=pypiano-claude-config,target=/home/dev/.claude,type=volume",
+    "source=pypiano-gh-config,target=/home/dev/.config/gh,type=volume"
+  ],
+
+  "containerEnv": {
+    "UV_CACHE_DIR": "/home/dev/.cache/uv",
+    "CLAUDE_CONFIG_DIR": "/home/dev/.claude"
+  },
+
+  // Forwarded from the host shell that launches VS Code / the devcontainer CLI.
+  // Set GH_TOKEN to a fine-grained token scoped to this repo; gh and git pick it up.
+  // Empty if unset on the host, in which case `gh auth login` is used instead.
+  "remoteEnv": {
+    "GH_TOKEN": "${localEnv:GH_TOKEN}"
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "GitHub.vscode-pull-request-github",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "ms-python.mypy-type-checker",
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "dprint.dprint",
+        "exiasr.hadolint"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/workspaces/pypiano/.venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests"],
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true
+        },
+        "black-formatter.args": ["--config", "black.toml"],
+        "flake8.args": ["--config", "tox.ini"],
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/.mypy_cache": true,
+          "**/.pytest_cache": true,
+          "**/.ruff_cache": true
+        }
+      }
+    }
+  }
+}

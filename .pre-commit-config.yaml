@@ -1,0 +1,33 @@
+# Run with prek (installed in the devcontainer): `prek run --all-files`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        # devcontainer.json is JSONC (comments allowed).
+        exclude: ^\.devcontainer/devcontainer\.json$
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: detect-private-key
+
+  # hadolint and dprint are pinned and checksum-verified in .devcontainer/Dockerfile.
+  - repo: local
+    hooks:
+      - id: hadolint
+        name: hadolint
+        entry: hadolint
+        language: system
+        files: (^|/)Dockerfile$
+      - id: dprint
+        name: dprint
+        entry: dprint fmt --allow-no-files
+        language: system
+        files: (^|/)Dockerfile$
