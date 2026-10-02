@@ -40,6 +40,9 @@ BASE_PIANO_OCTAVE_PATTERN = (
 class PianoKey:
     """Class representing a single key on an 88 key piano keyboard.
 
+    Note names follow scientific pitch notation: octave numbers go up at C. A key's two identities are the same pitch,
+    so the second identity of C-4 is B#-3 and the one of B-4 is Cb-5.
+
     Attributes:
         first_identity: The first note identity of a given piano key
         second_identity: The second note identity of a given piano key
