@@ -1,3 +1,5 @@
-from .piano import Piano
+"""Programmatically play piano on top of mingus and fluidsynth."""
 
-__all__ = ["pypiano"]
+from pypiano.piano import Piano
+
+__all__ = ["Piano"]
