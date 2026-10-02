@@ -246,8 +246,7 @@ class Piano:
 
         """
         # Check a given music container for invalid notes. See docstring of self._lint_music_container for more details
-        # Known bug: int and PianoKey are accepted here but rejected by _lint_music_container
-        self._lint_music_container(music_container)  # ty: ignore[invalid-argument-type]
+        self._lint_music_container(music_container)
 
         if recording_file is None:
             logger.info("Playing music container: %s via audio", music_container)
@@ -300,12 +299,9 @@ class Piano:
         if isinstance(music_container, str):
             self.__fluid_synth_sequencer.play_Note(Note(music_container))
         elif isinstance(music_container, int):
-            # FIX ME: Added another type check so the type checker can narrow the union
-            piano_key = self.keyboard[music_container]
-            if isinstance(piano_key, int):
-                msg = "This should not happen"
-                raise TypeError(msg)
-            self.__fluid_synth_sequencer.play_Note(piano_key.first_note)
+            self.__fluid_synth_sequencer.play_Note(self.keyboard.keys[music_container].first_note)
+        elif isinstance(music_container, PianoKey):
+            self.__fluid_synth_sequencer.play_Note(music_container.first_note)
         elif isinstance(music_container, Note):
             self.__fluid_synth_sequencer.play_Note(music_container)
         elif isinstance(music_container, NoteContainer):
@@ -317,18 +313,22 @@ class Piano:
 
         logger.debug("Done playing music container: %s of type: %s", music_container, type(music_container))
 
-    def _lint_music_container(self, music_container: str | Note | NoteContainer | Bar | Track) -> None:
+    def _lint_music_container(
+        self,
+        music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
+    ) -> None:
         """Check a music container for invalid notes.
 
         Method checks a given music container like mingus.containers.Note or more complex containers like Tracks, etc.
         for notes that can't be found on a piano with 88 keys. In case a string is passed it also checks whether it can
-        be parsed as a mingus.containers.Note.
+        be parsed as a mingus.containers.Note. An integer is a key index from 0 (A-0) to 87 (C-8).
 
         Args:
             music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music
 
         Raises:
-            ValueError: If illegal notes in given music container are found
+            ValueError: If illegal notes or an out of range key index are found in the given music container
+            TypeError: If the music container type is not supported
 
         """
         logger.debug(
@@ -338,6 +338,13 @@ class Piano:
         if isinstance(music_container, str):
             note = Note(music_container)
             distinct_notes_in_container = {note_to_string(note)}
+        elif isinstance(music_container, int):
+            if music_container not in self.keyboard.keys:
+                msg = f"Key index must be between 0 and {len(self.keyboard) - 1}. Got {music_container}"
+                raise ValueError(msg)
+            distinct_notes_in_container = {self.keyboard.keys[music_container].first_note_string}
+        elif isinstance(music_container, PianoKey):
+            distinct_notes_in_container = {music_container.first_note_string}
         elif isinstance(music_container, Note):
             distinct_notes_in_container = {note_to_string(music_container)}
         elif isinstance(music_container, NoteContainer):

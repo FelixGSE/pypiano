@@ -9,15 +9,20 @@ from pypiano.utils import note_to_string
 
 
 class BaseKey(NamedTuple):
-    """Note identities and color of a key within one octave."""
+    """Note identities and color of a key within one octave.
+
+    The second identity of C (B#) belongs to the octave below and the one of B (Cb) to the octave above, which
+    second_octave_offset expresses: C-4 is B#-3 and B-4 is Cb-5.
+    """
 
     first: str
     second: str
     color: str
+    second_octave_offset: int = 0
 
 
 BASE_PIANO_OCTAVE_PATTERN = (
-    BaseKey("C", "B#", "white"),
+    BaseKey("C", "B#", "white", second_octave_offset=-1),
     BaseKey("C#", "Db", "black"),
     BaseKey("D", "D", "white"),
     BaseKey("D#", "Eb", "black"),
@@ -28,7 +33,7 @@ BASE_PIANO_OCTAVE_PATTERN = (
     BaseKey("G#", "Ab", "black"),
     BaseKey("A", "A", "white"),
     BaseKey("A#", "Bb", "black"),
-    BaseKey("B", "C#", "white"),
+    BaseKey("B", "Cb", "white", second_octave_offset=1),
 )
 
 
@@ -41,21 +46,26 @@ class PianoKey:
         octave: An integer indicating the octave number of a given piano key
         key_color: The color of the key - Can be either black or white
         key_index: The key index on where to find a given piano key on an piano keyboards from left to right
+        second_octave: The octave of the second identity. Defaults to octave; differs for C (B# of the octave below)
+            and B (Cb of the octave above)
 
     """
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 - one argument per key attribute
         self,
         first_identity: str,
         second_identity: str,
         octave: int,
         key_color: str,
         key_index: int | None = None,
+        *,
+        second_octave: int | None = None,
     ) -> None:
         """Create a piano key from its note identities, octave, color and position."""
         self.first_identity = first_identity
         self.second_identity = second_identity
         self.octave = octave
+        self.second_octave = octave if second_octave is None else second_octave
         self.key_color = key_color
         self.key_index = key_index
 
@@ -63,7 +73,8 @@ class PianoKey:
         """Return a string with all attributes of the piano key."""
         return (
             f"{self.__class__.__name__}(first_identity={self.first_identity},second_identity={self.second_identity},"
-            f"octave={self.octave},key_color={self.key_color},key_index={self.key_index})"
+            f"octave={self.octave},second_octave={self.second_octave},key_color={self.key_color},"
+            f"key_index={self.key_index})"
         )
 
     def __getitem__(self, key: int) -> str:
@@ -105,17 +116,17 @@ class PianoKey:
     @property
     def full_note_string(self) -> str:
         """Get both PianoKey note identities as a combined string."""
-        return f"{self.first_identity}-{self.octave}/{self.second_identity}-{self.octave}"
+        return f"{self.first_note_string}/{self.second_note_string}"
 
     @property
     def first_note_string(self) -> str:
-        """Get the first identity of a given piano key as am mingus.containers.Note."""
+        """Get the first identity of a given piano key as a note string."""
         return f"{self.first_identity}-{self.octave}"
 
     @property
     def second_note_string(self) -> str:
-        """Get the second identity of a given piano key as am mingus.containers.Note."""
-        return f"{self.first_identity}-{self.octave}"
+        """Get the second identity of a given piano key as a note string."""
+        return f"{self.second_identity}-{self.second_octave}"
 
     @property
     def first_note(self) -> Note:
@@ -125,7 +136,7 @@ class PianoKey:
     @property
     def second_note(self) -> Note:
         """Get the second identity of the piano key as a mingus.containers.Note."""
-        return Note(f"{self.second_identity}-{self.octave}")
+        return Note(self.second_note_string)
 
     @property
     def frequency(self) -> float:
@@ -147,7 +158,7 @@ class PianoKey:
         if identity == "first":
             return Note(self.first_identity, self.octave)
         if identity == "second":
-            return Note(self.second_identity, self.octave)
+            return self.second_note
         msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
         raise ValueError(msg)
 
@@ -166,7 +177,7 @@ class PianoKey:
         if identity == "first":
             return f"{self.first_identity}-{self.octave}"
         if identity == "second":
-            return f"{self.second_identity}-{self.octave}"
+            return self.second_note_string
         msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
         raise ValueError(msg)
 
@@ -219,7 +230,7 @@ class PianoKeyboard:
             if key in self._keyboard[key_index]:
                 return key_index
 
-        msg = f"{key} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-8"
+        msg = f"{key} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-7"
         raise IndexError(msg)
 
     def __iter__(self) -> Iterator[PianoKey]:
@@ -256,7 +267,13 @@ class PianoKeyboard:
         for idx in range(10):
             for jdx in range(12):
                 tmp_base_key = BASE_PIANO_OCTAVE_PATTERN[jdx]
-                current_key = PianoKey(tmp_base_key.first, tmp_base_key.second, idx, tmp_base_key.color)
+                current_key = PianoKey(
+                    tmp_base_key.first,
+                    tmp_base_key.second,
+                    idx,
+                    tmp_base_key.color,
+                    second_octave=idx + tmp_base_key.second_octave_offset,
+                )
                 raw_piano_keyboard.append(current_key)
 
         kb = {}
