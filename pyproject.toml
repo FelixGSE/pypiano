@@ -1,0 +1,33 @@
+[project]
+name = "pypiano"
+version = "0.1.0"
+description = "Library to programmatically play piano"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "licenses/*"]
+authors = [{ name = "FelixGSE" }]
+dependencies = [
+    "mingus==0.6.1",
+    "numpy==1.20.2",
+    "sf2utils==0.9.0",
+    "requests==2.25.1",
+    "tqdm==4.60.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/FelixGSE/pypiano"
+
+[dependency-groups]
+dev = [
+    "tox==3.23.0",
+    "flake8==3.9.1",
+    "pyflakes==2.3.1",
+    "pytest==6.2.3",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.22,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
