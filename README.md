@@ -91,5 +91,13 @@ The sound font is checked in with [Git LFS](https://git-lfs.com/). With `git-lfs
   publish to PyPI.
 
 ## License
-- PyPiano is distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-PyPiano)
-- Default sound fonts are distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-FluidR3_GM_sf2.txt)
+
+PyPiano is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+See [LICENSE](LICENSE). Copyright (C) 2021-2026 FelixGSE.
+
+PyPiano builds on [mingus](https://github.com/bspaans/python-mingus), which is licensed under GPL-3.0-or-later as well.
+Releases up to and including 0.1.0 were published under the MIT license.
+
+The bundled default sound font is distributed under the MIT license, see
+[licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt).
