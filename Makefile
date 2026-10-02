@@ -8,13 +8,16 @@ PYTHONS ?= 3.11 3.12 3.13 3.14
 # Minimum line and branch coverage in percent; make coverage fails below it
 COVERAGE_MIN ?= 100
 
-.PHONY: help install lint test test-all coverage play record clean
+.PHONY: help install soundfont lint test test-all coverage play record clean
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
 
 install: ## Install the project and dev tools into .venv
 	uv sync
+
+soundfont: ## Download the default sound font from Debian if it is missing; never overwrites a file
+	uv run scripts/get_default_sf_file.py
 
 lint: ## Run all pre-commit hooks on all files
 	prek run --all-files

@@ -65,6 +65,7 @@ The devcontainer (`.devcontainer/`) has everything installed. Common commands go
 
 ```bash
 make install   # uv sync
+make soundfont # download the sound font from Debian if it is missing (see Contributing)
 make lint      # run all pre-commit hooks on all files
 make test      # pytest; make test-all runs every supported Python version
 make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
@@ -81,6 +82,9 @@ coverage.
 
 The sound font is checked in with [Git LFS](https://git-lfs.com/). With `git-lfs` installed,
 `pypiano/sound_fonts/FluidR3_GM.sf2` is downloaded when you clone; otherwise install `git-lfs` and run `git lfs pull`.
+If Git LFS cannot download it (see [Known issues](#known-issues)), delete the pointer file and run `make soundfont`. It
+downloads the same file from Debian's fluid-soundfont package and checks it against the checksum in the repository. It
+never overwrites an existing file.
 
 ## Known issues
 
