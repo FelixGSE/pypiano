@@ -60,6 +60,11 @@ jobs:
           python-version: ${{ matrix.python }}
           enable-cache: true
       - name: Install the project
+        env:
+          # Use uv's Python builds like the devcontainer, not whatever the runner has installed
+          UV_PYTHON_PREFERENCE: only-managed
         run: uv sync --locked
       - name: Run the tests with coverage
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
         run: make coverage
