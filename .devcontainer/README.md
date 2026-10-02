@@ -14,10 +14,8 @@ To add a system package, edit `Dockerfile` and rebuild (`Dev Containers: Rebuild
 
 - **uv** is preinstalled and manages the interpreters and `.venv` (no system Python).
 - The maintained CPython versions (3.11, 3.12, 3.13, 3.14) are preinstalled, so a
-  multi-version test matrix (`uv run --python 3.13 ...`, tox with `tox-uv`, nox) works offline.
-- `post-create.sh` detects the layout: with a `pyproject.toml` it runs `uv sync`;
-  with the legacy `setup.py` + `requirements.txt` it creates `.venv` with `uv pip`
-  on a best-effort basis (the old pins do not install on maintained Pythons).
+  multi-version test matrix (`uv run --python 3.13 ...`) works offline.
+- `post-create.sh` runs `uv sync`, which installs the project and the `dev` group into `.venv`.
 - **fluidsynth** / `libfluidsynth3` are installed so `mingus.midi.pyfluidsynth` can load the library.
 - **git-lfs** is installed; the post-create script pulls the sound font if the clone has pointers.
 
@@ -31,6 +29,7 @@ sha256 per architecture (amd64/arm64). To bump one, change its `*_VERSION` and b
 `post-create.sh` runs `prek install`, so `.pre-commit-config.yaml` runs on every commit:
 
 - the standard `pre-commit-hooks` (whitespace, EOF, YAML/TOML/JSON syntax, large files, ...)
+- `ruff check --fix` and `ruff format` for Python (config: `pyproject.toml`)
 - `hadolint` lints Dockerfiles (config: `.hadolint.yaml`)
 - `dprint fmt` formats Dockerfiles (config: `dprint.json`)
 

@@ -18,10 +18,9 @@ Homepage = "https://github.com/FelixGSE/pypiano"
 
 [dependency-groups]
 dev = [
-    "black>=26.5.1",
-    "flake8>=7.4.1",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
+    "ruff>=0.16.10",
     "tox>=4.64.7",
 ]
 
@@ -31,3 +30,31 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Conflicts with the formatter
+    "COM812",
+    # The project is licensed via LICENSE, not per-file headers
+    "CPY001",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**" = ["INP001"] # standalone scripts, not a package
+"tests/**" = [
+    "ANN",     # mock arguments injected by unittest.mock.patch
+    "ARG",     # same
+    "D",       # test names describe the test
+    "N802",    # mocks mirror mingus method names such as play_Note
+    "A002",    # mocks mirror mingus signatures
+    "PLR2004", # expected values in assertions
+    "S101",    # pytest uses assert
+    "SLF001",  # tests check private state
+]
