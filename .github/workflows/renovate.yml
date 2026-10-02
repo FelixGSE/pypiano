@@ -2,8 +2,9 @@ name: renovate
 
 on:
   schedule:
-    # Daily, so ticked checkboxes on the dependency dashboard are picked up; renovate.json limits new PRs to Mondays
-    - cron: "0 5 * * *"
+    # Weekly, inside renovate.json's "before 6am on monday" window; run it from the Actions tab to act on ticked
+    # dependency dashboard checkboxes in between
+    - cron: "0 5 * * 1"
   workflow_dispatch:
     inputs:
       dry-run:
