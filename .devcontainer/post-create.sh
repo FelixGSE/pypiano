@@ -43,6 +43,12 @@ else
   uv venv --clear --python 3.12 .venv
 fi
 
+# Install the git pre-commit hook (prek reads .pre-commit-config.yaml).
+if [[ -f .pre-commit-config.yaml ]]; then
+  echo "==> prek install"
+  prek install
+fi
+
 echo "==> fluidsynth: $(fluidsynth --version 2>/dev/null | head -1 || echo 'not found')"
 echo "==> python: $(.venv/bin/python --version 2>/dev/null || echo 'venv not created')"
 echo "==> Done. Activate with: source .venv/bin/activate (or just use uv run ...)"

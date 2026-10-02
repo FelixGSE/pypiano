@@ -1,0 +1,5 @@
+ignored:
+  # Dev image: track the distro's current packages rather than pinning apt versions.
+  - DL3008
+  # USERNAME is a login name, not a secret.
+  - DL3064

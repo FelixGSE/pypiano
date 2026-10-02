@@ -21,6 +21,21 @@ To add a system package, edit `Dockerfile` and rebuild (`Dev Containers: Rebuild
 - **fluidsynth** / `libfluidsynth3` are installed so `mingus.midi.pyfluidsynth` can load the library.
 - **git-lfs** is installed; the post-create script pulls the sound font if the clone has pointers.
 
+## Hooks and linters
+
+**prek** (a fast `pre-commit` drop-in), **hadolint** and **dprint** are downloaded from
+their GitHub releases in the `Dockerfile`, pinned by version and verified against a
+sha256 per architecture (amd64/arm64). To bump one, change its `*_VERSION` and both
+`*_SHA256_*` args.
+
+`post-create.sh` runs `prek install`, so `.pre-commit-config.yaml` runs on every commit:
+
+- the standard `pre-commit-hooks` (whitespace, EOF, YAML/TOML/JSON syntax, large files, ...)
+- `hadolint` lints Dockerfiles (config: `.hadolint.yaml`)
+- `dprint fmt` formats Dockerfiles (config: `dprint.json`)
+
+Run everything manually with `prek run --all-files`.
+
 ## Claude Code
 
 The `claude` CLI is installed in the image (native installer, user-local, no root).

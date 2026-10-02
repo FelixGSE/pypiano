@@ -61,7 +61,9 @@
         "ms-python.black-formatter",
         "ms-python.flake8",
         "charliermarsh.ruff",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "dprint.dprint",
+        "exiasr.hadolint"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/workspaces/pypiano/.venv/bin/python",
