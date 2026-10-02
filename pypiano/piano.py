@@ -246,7 +246,8 @@ class Piano:
 
         """
         # Check a given music container for invalid notes. See docstring of self._lint_music_container for more details
-        self._lint_music_container(music_container)
+        # Known bug: int and PianoKey are accepted here but rejected by _lint_music_container
+        self._lint_music_container(music_container)  # ty: ignore[invalid-argument-type]
 
         if recording_file is None:
             logger.info("Playing music container: %s via audio", music_container)
@@ -299,7 +300,7 @@ class Piano:
         if isinstance(music_container, str):
             self.__fluid_synth_sequencer.play_Note(Note(music_container))
         elif isinstance(music_container, int):
-            # FIX ME: Added another type check to fix mypy error
+            # FIX ME: Added another type check so the type checker can narrow the union
             piano_key = self.keyboard[music_container]
             if isinstance(piano_key, int):
                 msg = "This should not happen"

@@ -93,12 +93,12 @@ class PianoKey:
         self._key_color = color
 
     @property
-    def key_index(self) -> int:
+    def key_index(self) -> int | None:
         """Get key index of a given PianoKey object."""
         return self._key_index
 
     @key_index.setter
-    def key_index(self, key_index: int) -> None:
+    def key_index(self, key_index: int | None) -> None:
         """Set key index of a given PianoKey object."""
         self._key_index = key_index
 

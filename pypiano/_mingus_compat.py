@@ -23,5 +23,6 @@ def raw_audio_string(data: np.ndarray) -> bytes:
     return data.astype(np.int16).tobytes()
 
 
-pyfluidsynth.fluid_synth_write_s16_stereo = fluid_synth_write_s16_stereo
-pyfluidsynth.raw_audio_string = raw_audio_string
+# Deliberate monkeypatch: type checkers treat each module function as its own type, so the assignments are ignored.
+pyfluidsynth.fluid_synth_write_s16_stereo = fluid_synth_write_s16_stereo  # ty: ignore[invalid-assignment]
+pyfluidsynth.raw_audio_string = raw_audio_string  # ty: ignore[invalid-assignment]
