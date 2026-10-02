@@ -1,0 +1,34 @@
+name: renovate
+
+on:
+  schedule:
+    # Daily, so ticked checkboxes on the dependency dashboard are picked up; renovate.json limits new PRs to Mondays
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Only log what Renovate would do, without creating branches or PRs
+        type: boolean
+        default: false
+
+concurrency:
+  group: renovate
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Renovate
+        uses: renovatebot/github-action@v46.3.6
+        with:
+          # Fine-grained PAT for this repository, see renovate.json for what it updates
+          token: ${{ secrets.RENOVATE_TOKEN }}
+        env:
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_ONBOARDING: "false"
+          RENOVATE_DRY_RUN: ${{ inputs.dry-run && 'full' || '' }}
+          LOG_LEVEL: ${{ inputs.dry-run && 'debug' || 'info' }}
