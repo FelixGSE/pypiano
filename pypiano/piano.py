@@ -308,7 +308,8 @@ class Piano:
             self.__fluid_synth_sequencer.play_NoteContainer(music_container)
         elif isinstance(music_container, Bar):
             self.__fluid_synth_sequencer.play_Bar(music_container)
-        elif isinstance(music_container, Track):
+        else:
+            # Only a Track is left: _lint_music_container rejects every other type before playing
             self.__fluid_synth_sequencer.play_Track(music_container)
 
         logger.debug("Done playing music container: %s of type: %s", music_container, type(music_container))

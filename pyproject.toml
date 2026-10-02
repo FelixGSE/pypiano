@@ -19,6 +19,7 @@ Homepage = "https://github.com/FelixGSE/pypiano"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
     "tox>=4.64.7",
     "ty>=0.0.84",
@@ -53,11 +54,7 @@ ban-relative-imports = "all"
 [tool.ruff.lint.per-file-ignores]
 "scripts/**" = ["INP001"] # standalone scripts, not a package
 "tests/**" = [
-    "ANN",     # mock arguments injected by unittest.mock.patch
-    "ARG",     # same
     "D",       # test names describe the test
-    "N802",    # mocks mirror mingus method names such as play_Note
-    "A002",    # mocks mirror mingus signatures
     "PLR2004", # expected values in assertions
     "S101",    # pytest uses assert
     "SLF001",  # tests check private state
@@ -66,3 +63,14 @@ ban-relative-imports = "all"
 [tool.ty.src]
 # scripts/ declare their own dependencies inline (PEP 723) and do not run in the project environment
 exclude = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["pypiano"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
