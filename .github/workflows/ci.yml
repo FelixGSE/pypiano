@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up uv
+        # The ty hook runs from the project environment through uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Run the hooks
+        uses: j178/prek-action@v3.0.0
+        env:
+          # These two run from binaries in the devcontainer image; they get their own steps below
+          SKIP: hadolint,dprint
+        with:
+          # Same versions as in .devcontainer/Dockerfile
+          prek-version: 0.5.4
+      - name: Lint the Dockerfile
+        run: docker run --rm -v "$PWD:/repo:ro" -w /repo hadolint/hadolint:v2.15.1-debian hadolint .devcontainer/Dockerfile
+      - name: Check Dockerfile formatting
+        uses: dprint/check@v2.5
+        with:
+          dprint-version: 0.58.0
+
+  test:
+    name: Test (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      # No LFS: the tests mock fluidsynth and do not need the sound font
+      - uses: actions/checkout@v7
+      - name: Install fluidsynth
+        # mingus loads libfluidsynth when it is imported
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libfluidsynth3
+      - name: Set up uv and Python ${{ matrix.python }}
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - name: Install the project
+        env:
+          # Use uv's Python builds like the devcontainer, not whatever the runner has installed
+          UV_PYTHON_PREFERENCE: only-managed
+        run: uv sync --locked
+      - name: Run the tests with coverage
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        run: make coverage

@@ -1,5 +1,4 @@
 import os
-from ctypes.macholib.dyld import dyld_find
 from pathlib import Path
 
 import pytest
@@ -114,6 +113,8 @@ def test_fallback_path_should_let_dyld_find_libfluidsynth_when_prepended(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     # Given libfluidsynth in a directory dyld does not search by default
+    # Debian and Ubuntu remove ctypes.macholib from their system Python
+    dyld_find = pytest.importorskip("ctypes.macholib.dyld").dyld_find
     library_dir = make_homebrew_prefix(tmp_path / "opt")
     monkeypatch.delenv(FALLBACK, raising=False)
     # When the search ctypes.util.find_library uses on macOS runs inside and outside the block
