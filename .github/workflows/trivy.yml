@@ -78,5 +78,15 @@ jobs:
           scan-type: rootfs
           scan-ref: .venv
           scanners: license
-          # Report only for now: mingus, the main dependency, is GPL-3.0-or-later
-          exit-code: "0"
+      - name: Fail on forbidden or unknown licenses
+        # PyPiano is GPL-3.0-or-later, so copyleft licenses (restricted, reciprocal) are fine. Forbidden licenses (for
+        # example non-commercial ones) are CRITICAL and licenses Trivy cannot classify are UNKNOWN
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: rootfs
+          scan-ref: .venv
+          scanners: license
+          severity: CRITICAL,UNKNOWN
+          exit-code: "1"
+          skip-setup-trivy: true
