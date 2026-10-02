@@ -198,7 +198,7 @@ class Piano:
              "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi")
 
         Args:
-            instrument: String with the name of the instrument to be used for default sound founts. If different sound
+            instrument: String with the name of the instrument to be used for default sound fonts. If different sound
                 fonts are used an integer with the instrument number should be provided.
 
         """

@@ -48,7 +48,7 @@ class PianoKey:
         second_identity: The second note identity of a given piano key
         octave: An integer indicating the octave number of a given piano key
         key_color: The color of the key - Can be either black or white
-        key_index: The key index on where to find a given piano key on an piano keyboards from left to right
+        key_index: The key index on where to find a given piano key on a piano keyboard from left to right
         second_octave: The octave of the second identity. Defaults to octave; differs for C (B# of the octave below)
             and B (Cb of the octave above)
 
@@ -263,7 +263,7 @@ class PianoKeyboard:
     def _create_keyboard_dict() -> dict[int, PianoKey]:
         """Generate the piano dictionary.
 
-        Method generates a piano dictionary with key_index from left to right as its' key and a corresponding
+        Method generates a piano dictionary with key_index from left to right as its key and a corresponding
         PianoKey object as Value
         """
         raw_piano_keyboard = []
@@ -290,12 +290,12 @@ class PianoKeyboard:
     def distinct_key_names(self) -> set[str]:
         """Get all distinct key names / note names on the piano keyboard.
 
-        Retrieves a set of distinct notes that can be found an a piano with 88 keys. Returned note names follow the
+        Retrieves a set of distinct notes that can be found on a piano with 88 keys. Returned note names follow the
         mingus note naming convention: <NOTE_NAME><ACCIDENTAL>-<OCTAVE>, so for example C-1, A#-1, Bb-2, etc.
 
         Returns:
           A set containing note names. Note that the key names in the returned set are not in order as you find them on
-          an an actual piano keyboard.
+          an actual piano keyboard.
 
           example:
 
