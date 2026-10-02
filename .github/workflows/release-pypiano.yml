@@ -7,33 +7,8 @@ on:
 
 jobs:
   tests:
-    name: Run tests and check code
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python: ["3.11", "3.12", "3.13", "3.14"]
-    steps:
-      # No LFS: the tests mock fluidsynth and do not need the sound font
-      - uses: actions/checkout@v7
-      - name: Install fluidsynth
-        # mingus loads libfluidsynth when it is imported
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libfluidsynth3
-      - name: Set up uv and Python ${{ matrix.python }}
-        uses: astral-sh/setup-uv@v10
-        with:
-          python-version: ${{ matrix.python }}
-          enable-cache: true
-      - name: Install the project
-        run: uv sync --locked
-      - name: Check formatting, lint and types
-        run: |
-          uv run ruff format --check
-          uv run ruff check
-          uv run ty check
-      - name: Run tests with coverage
-        run: make coverage
+    name: Lint and test
+    uses: ./.github/workflows/ci.yml
   make-github-release:
     name: Create Release on Github
     needs: tests
