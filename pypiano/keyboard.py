@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-"""
+""" """
 
-"""
 from typing import Union, Dict, Optional, Set
 from mingus.containers import Note
 from collections import namedtuple
 from .utils import note_to_string
-
 
 base_key = namedtuple("base_key", ["first", "second", "color"])
 BASE_PIANO_OCTAVE_PATTERN = (

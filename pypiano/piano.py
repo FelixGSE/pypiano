@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""
-"""
+""" """
+
 import logging
-import pkg_resources
 import time
 
 from mingus.containers import Note, NoteContainer, Bar, Track
@@ -11,6 +10,8 @@ from mingus.midi import pyfluidsynth as globalfs
 
 from typing import Union
 from pathlib import Path
+from importlib.resources import files
+from . import _mingus_compat  # noqa: F401 - patches mingus for numpy >= 2.3
 from .keyboard import PianoKeyboard, PianoKey
 
 from .utils import (
@@ -20,7 +21,7 @@ from .utils import (
     track_to_note_string_list,
 )
 
-DEFAULT_SOUND_FONTS = Path(pkg_resources.resource_filename("pypiano", "/sound_fonts/FluidR3_GM.sf2"))
+DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM.sf2"))
 
 # Valid audio driver are taken from docstring of mingus.midi.fluidsynth.FluidSynthSequencer.start_audio_output() method
 # https://github.com/bspaans/python-mingus/blob/f131620eb7353bcfbf1303b24b951a95cad2ac20/mingus/midi/fluidsynth.py#L57

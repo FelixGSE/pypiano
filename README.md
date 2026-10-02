@@ -40,6 +40,19 @@ p.play(note)
 The same code works with more complex mingus containers like, NoteContainers, Bars and Tracks
 
 
+## Development
+
+The devcontainer (`.devcontainer/`) has everything installed. Common commands go through `make`:
+
+```bash
+make install   # uv sync
+make lint      # run all pre-commit hooks on all files
+make test      # pytest; make test-all runs every supported Python version
+make play      # play a note via audio output (needs a sound device, so not inside the container)
+make record    # record a note to demo.wav
+make record NOTE=A-4 INSTRUMENT="Honky-tonk Piano" OUTPUT=a4.wav RECORD_SECONDS=3
+```
+
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
 Please make sure to update tests as appropriate.

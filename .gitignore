@@ -97,3 +97,6 @@ ENV/
 .envrc
 python_interpreter_defaults
 .idea/
+
+# Demo recordings (make record)
+*.wav

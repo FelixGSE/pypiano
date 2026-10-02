@@ -22,6 +22,7 @@ RUN apt-get update \
         git-lfs \
         gnupg \
         less \
+        make \
         openssh-client \
         procps \
         unzip \
