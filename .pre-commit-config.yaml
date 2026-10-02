@@ -25,7 +25,8 @@ repos:
         args: [--fix]
       - id: ruff-format
 
-  # hadolint and dprint are pinned and checksum-verified in .devcontainer/Dockerfile.
+  # hadolint and dprint are pinned and checksum-verified in .devcontainer/Dockerfile;
+  # ty runs from the project environment (uv.lock) so it sees the installed dependencies.
   - repo: local
     hooks:
       - id: hadolint
@@ -33,6 +34,12 @@ repos:
         entry: hadolint
         language: system
         files: (^|/)Dockerfile$
+      - id: ty
+        name: ty
+        entry: uv run --frozen ty check
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: dprint
         name: dprint
         entry: dprint fmt --allow-no-files

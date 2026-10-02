@@ -30,6 +30,7 @@ sha256 per architecture (amd64/arm64). To bump one, change its `*_VERSION` and b
 
 - the standard `pre-commit-hooks` (whitespace, EOF, YAML/TOML/JSON syntax, large files, ...)
 - `ruff check --fix` and `ruff format` for Python (config: `pyproject.toml`)
+- `ty check` for type checking, run from the project environment (config: `pyproject.toml`)
 - `hadolint` lints Dockerfiles (config: `.hadolint.yaml`)
 - `dprint fmt` formats Dockerfiles (config: `dprint.json`)
 

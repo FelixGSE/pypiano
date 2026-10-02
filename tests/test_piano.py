@@ -76,7 +76,7 @@ class PianoTests(unittest.TestCase):
         assert p.instrument == new_instrument
 
         # Test cases for non default sound fonts
-        p._sound_fonts_path = "/fantasypath/fantasyfile.sf2"
+        p._sound_fonts_path = Path("/fantasypath/fantasyfile.sf2")
         with pytest.raises(TypeError):
             p.load_instrument(instrument=new_instrument)
 
