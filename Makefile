@@ -6,6 +6,16 @@ OUTPUT ?= demo.wav
 RECORD_SECONDS ?= 2
 PYTHONS ?= 3.11 3.12 3.13 3.14
 
+# On macOS, ctypes.util.find_library does not search Homebrew's lib dir, so
+# mingus cannot locate libfluidsynth. SIP strips DYLD_* from /bin/sh's
+# environment, so the hint must be set inline on the uv command, not exported.
+BREW_PREFIX := $(shell brew --prefix 2>/dev/null)
+ifneq ($(BREW_PREFIX),)
+UV_RUN := DYLD_FALLBACK_LIBRARY_PATH=$(BREW_PREFIX)/lib uv run
+else
+UV_RUN := uv run
+endif
+
 .PHONY: help install lint test test-all play record clean
 
 help: ## Show this help
@@ -18,16 +28,16 @@ lint: ## Run all pre-commit hooks on all files
 	prek run --all-files
 
 test: ## Run the tests
-	uv run pytest
+	$(UV_RUN) pytest
 
 test-all: ## Run the tests on every supported Python version
-	@set -e; for v in $(PYTHONS); do echo "==> Python $$v"; uv run --isolated --python $$v pytest -q; done
+	@set -e; for v in $(PYTHONS); do echo "==> Python $$v"; $(UV_RUN) --isolated --python $$v pytest -q; done
 
 play: ## Play NOTE via audio output (needs a sound device)
-	uv run scripts/demo.py play --note "$(NOTE)" --instrument "$(INSTRUMENT)"
+	$(UV_RUN) scripts/demo.py play --note "$(NOTE)" --instrument "$(INSTRUMENT)"
 
 record: ## Record NOTE to OUTPUT (wav)
-	uv run scripts/demo.py record --note "$(NOTE)" --instrument "$(INSTRUMENT)" --output "$(OUTPUT)" --seconds $(RECORD_SECONDS)
+	$(UV_RUN) scripts/demo.py record --note "$(NOTE)" --instrument "$(INSTRUMENT)" --output "$(OUTPUT)" --seconds $(RECORD_SECONDS)
 
 clean: ## Remove caches and demo recordings
 	rm -rf .pytest_cache .ruff_cache .tox dist "$(OUTPUT)"
