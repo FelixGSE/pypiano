@@ -1,11 +1,12 @@
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 
 from pypiano import piano
+from pypiano.keyboard import PianoKey
 from tests.mock_objects import MockFluidSynthSequencer
 
 
@@ -118,3 +119,48 @@ class PianoTests(unittest.TestCase):
         track.add_bar(bar)
         with pytest.raises(ValueError, match="Found notes that are not on a piano"):
             p._lint_music_container(music_container=track)
+
+
+@pytest.fixture
+def sequencer(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    mock = MagicMock(name="FluidSynthSequencer()")
+    mock.load_sound_font.return_value = True
+    monkeypatch.setattr(piano, "FluidSynthSequencer", MagicMock(return_value=mock))
+    return mock
+
+
+@pytest.mark.parametrize(
+    ("music_container", "expected_note"),
+    [(39, "C-4"), (0, "A-0"), (87, "C-8"), (PianoKey("C", "B#", 4, "white", second_octave=3), "C-4")],
+    ids=["key index C-4", "first key index", "last key index", "piano key"],
+)
+def test_piano_should_play_first_identity_when_given_key_index_or_piano_key(
+    sequencer: MagicMock, music_container: int | PianoKey, expected_note: str
+) -> None:
+    # Given a piano
+    p = piano.Piano()
+    # When
+    p.play(music_container)
+    # Then
+    (played,), _ = sequencer.play_Note.call_args
+    assert f"{played.name}-{played.octave}" == expected_note
+
+
+@pytest.mark.parametrize("key_index", [-1, 88])
+def test_piano_should_raise_value_error_when_key_index_is_out_of_range(sequencer: MagicMock, key_index: int) -> None:
+    # Given a piano
+    p = piano.Piano()
+    # When / Then
+    with pytest.raises(ValueError, match="Key index must be between 0 and 87"):
+        p.play(key_index)
+    sequencer.play_Note.assert_not_called()
+
+
+def test_piano_should_raise_value_error_when_piano_key_is_not_on_the_keyboard(sequencer: MagicMock) -> None:
+    # Given a piano and a key above C-8
+    p = piano.Piano()
+    key = PianoKey("D", "D", 8, "white")
+    # When / Then
+    with pytest.raises(ValueError, match="not on a piano with 88 keys"):
+        p.play(key)
+    sequencer.play_Note.assert_not_called()
