@@ -89,9 +89,6 @@ The sound font is checked in with [Git LFS](https://git-lfs.com/). With `git-lfs
   `scripts/get_default_sf_file.py`). It is 148 MB and contains 194 instruments, of which PyPiano uses 8. Because of its
   size the repository has used up its Git LFS budget, so installing from GitHub fails, and the package is too large to
   publish to PyPI.
-- **FluidSynth not found on macOS with Apple Silicon** ([#16](https://github.com/FelixGSE/pypiano/issues/16)): mingus does
-  not search Homebrew's `/opt/homebrew/lib`. The `make` targets work around this; elsewhere, set
-  `DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib` when running Python.
 
 ## License
 - PyPiano is distributed under MIT license - Check corresponding [license file](https://github.com/FelixGSE/pypiano/blob/master/licenses/LICENSE-PyPiano)
