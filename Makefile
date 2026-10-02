@@ -45,5 +45,5 @@ record: ## Record NOTE to OUTPUT (wav)
 	$(UV_RUN) scripts/demo.py record --note "$(NOTE)" --instrument "$(INSTRUMENT)" --output "$(OUTPUT)" --seconds $(RECORD_SECONDS)
 
 clean: ## Remove caches and demo recordings
-	rm -rf .pytest_cache .ruff_cache .tox .coverage htmlcov dist "$(OUTPUT)"
+	rm -rf .pytest_cache .ruff_cache .coverage htmlcov dist "$(OUTPUT)"
 	find . -name __pycache__ -type d -not -path './.venv/*' -prune -exec rm -rf {} +
