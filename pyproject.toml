@@ -3,7 +3,7 @@ name = "pypiano"
 version = "0.1.0"
 description = "Library to programmatically play piano"
 readme = "README.md"
-license = "MIT"
+license = "GPL-3.0-or-later"
 license-files = ["LICENSE", "licenses/*"]
 authors = [{ name = "FelixGSE" }]
 requires-python = ">=3.11"

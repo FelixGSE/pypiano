@@ -3,6 +3,9 @@
 mingus.midi.pyfluidsynth still uses numpy.fromstring in binary mode and ndarray.tostring, both removed in numpy 2.3.
 The replacements below are the same functions using numpy.frombuffer and ndarray.tobytes. All callers in mingus look
 these functions up on the module at call time, so replacing the module attributes is sufficient.
+
+They are adapted from mingus.midi.pyfluidsynth (pyFluidSynth, Copyright 2008-2009 Nathan Whitehead, released under the
+LGPL), which PyPiano uses under the terms of the GPL.
 """
 
 from ctypes import c_void_p, create_string_buffer
