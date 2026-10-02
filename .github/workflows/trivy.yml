@@ -1,0 +1,82 @@
+name: trivy
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    # Weekly, to catch vulnerabilities published after the last change
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trivy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_VERSION: v0.75.0
+  # Findings that do not apply, each with its reason
+  TRIVY_IGNOREFILE: .trivyignore.yaml
+
+jobs:
+  security:
+    name: Vulnerabilities, secrets and misconfigurations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Upload the results to the repository's code scanning alerts
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan and fail on high or critical findings
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+      - name: Scan all severities for code scanning
+        if: always()
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy-results.sarif
+          skip-setup-trivy: true
+      - name: Upload to code scanning
+        # Pull requests from forks cannot write security events
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy
+
+  licenses:
+    name: Licenses of runtime dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+      - name: Install the runtime dependencies
+        # uv.lock has no license information, so scan the installed packages; dev tools are not distributed
+        run: uv sync --locked --no-dev --no-install-project
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+      - name: Report licenses
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: rootfs
+          scan-ref: .venv
+          scanners: license
+          # Report only for now: mingus, the main dependency, is GPL-3.0-or-later
+          exit-code: "0"

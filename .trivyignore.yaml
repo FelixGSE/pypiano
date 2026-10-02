@@ -1,0 +1,4 @@
+# Findings Trivy reports that do not apply to this repository, each with the reason.
+misconfigurations:
+  - id: DS-0026
+    statement: The devcontainer image is a development environment, not a long-running service, so a HEALTHCHECK has nothing to check.
