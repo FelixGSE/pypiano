@@ -18,6 +18,13 @@ repos:
       - id: check-shebang-scripts-are-executable
       - id: detect-private-key
 
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
   # hadolint and dprint are pinned and checksum-verified in .devcontainer/Dockerfile.
   - repo: local
     hooks:

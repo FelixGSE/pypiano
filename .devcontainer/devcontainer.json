@@ -58,8 +58,6 @@
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
         "ms-python.mypy-type-checker",
-        "ms-python.black-formatter",
-        "ms-python.flake8",
         "charliermarsh.ruff",
         "tamasfe.even-better-toml",
         "dprint.dprint",
@@ -71,11 +69,13 @@
         "python.testing.pytestEnabled": true,
         "python.testing.pytestArgs": ["tests"],
         "[python]": {
-          "editor.defaultFormatter": "ms-python.black-formatter",
-          "editor.formatOnSave": true
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+          }
         },
-        "black-formatter.args": ["--config", "black.toml"],
-        "flake8.args": ["--config", "tox.ini"],
         "files.exclude": {
           "**/__pycache__": true,
           "**/.mypy_cache": true,
