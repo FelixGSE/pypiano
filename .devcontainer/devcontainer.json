@@ -5,11 +5,8 @@
   "name": "pypiano",
   "build": {
     "dockerfile": "Dockerfile",
-    "context": ".",
-    "args": {
-      // Pinned uv release; bump deliberately.
-      "UV_VERSION": "0.12.22"
-    }
+    // The uv version is pinned by UV_VERSION in the Dockerfile, where Renovate updates it
+    "context": "."
   },
 
   "workspaceFolder": "/workspaces/pypiano",
