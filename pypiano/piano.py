@@ -4,6 +4,7 @@ import logging
 import time
 from importlib.resources import files
 from pathlib import Path
+from typing import TypeAlias
 
 from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.midi import pyfluidsynth as globalfs
@@ -20,12 +21,7 @@ from pypiano.errors import (
     UnsupportedContainerError,
 )
 from pypiano.keyboard import PianoKey, PianoKeyboard
-from pypiano.utils import (
-    bar_to_note_string_list,
-    note_container_to_note_string_list,
-    note_to_string,
-    track_to_note_string_list,
-)
+from pypiano.utils import note_name, notes_in
 
 DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM.sf2"))
 
@@ -58,6 +54,15 @@ DEFAULT_INSTRUMENTS = {
 
 # Sample rate fluidsynth renders at, used for wav recordings
 WAV_SAMPLE_FREQUENCY = 44100
+
+# The mingus containers Piano.play turns its input into, and the sequencer method that plays each of them
+MusicContainer: TypeAlias = Note | NoteContainer | Bar | Track
+PLAY_METHODS: dict[type, str] = {
+    Note: "play_Note",
+    NoteContainer: "play_NoteContainer",
+    Bar: "play_Bar",
+    Track: "play_Track",
+}
 
 # Initialize module logger
 logger = logging.getLogger("pypiano")
@@ -92,10 +97,12 @@ class Piano:
         """Load the sound fonts and instrument. Audio output is started lazily on the first play."""
         self._sequencer = FluidSynthSequencer()
 
-        self._sound_fonts_path = Path(sound_fonts_path)
+        self._sound_fonts_path: Path | None = None
         # Set variable to track if sound fonts are loaded
         self._sound_fonts_loaded = False
-        self.load_sound_fonts(self._sound_fonts_path)
+        # Whether the loaded sound fonts are PyPiano's default ones, which take instrument names instead of numbers
+        self._uses_default_sound_fonts = False
+        self.load_sound_fonts(sound_fonts_path)
 
         # Audio output is lazily loaded when self.play method is called the first time without recording
         self._current_audio_driver = audio_driver
@@ -103,8 +110,7 @@ class Piano:
         self._audio_driver_is_active = False
 
         # Set instrument
-        self.instrument = instrument
-        self.load_instrument(self.instrument)
+        self.load_instrument(instrument)
 
         # Initialize a piano keyboard
         self.keyboard = PianoKeyboard()
@@ -122,6 +128,8 @@ class Piano:
 
         self._sound_fonts_loaded = True
         self._sound_fonts_path = Path(sound_fonts_path)
+        # Compare resolved paths, so the default file loaded through another path still counts as the default
+        self._uses_default_sound_fonts = self._sound_fonts_path.resolve() == DEFAULT_SOUND_FONTS.resolve()
 
         logger.debug("Successfully initialized sound fonts from %s", sound_fonts_path)
 
@@ -137,6 +145,7 @@ class Piano:
             self._sequencer.fs.sfunload(self._sequencer.sfid)
             self._sound_fonts_loaded = False
             self._sound_fonts_path = None
+            self._uses_default_sound_fonts = False
         else:
             logger.debug("No active sound fonts")
 
@@ -215,7 +224,7 @@ class Piano:
 
         # If default sound fonts are used, check if the provided instrument string is contained in the valid
         # instruments. If different sound fonts are provided, checks are disabled
-        if self._sound_fonts_path == DEFAULT_SOUND_FONTS:
+        if self._uses_default_sound_fonts:
             if isinstance(instrument, int):
                 msg = "When using default sound fonts you must pass a string for instrument parameter"
                 raise InstrumentTypeError(msg)
@@ -260,19 +269,19 @@ class Piano:
             AudioDriverError: If the configured audio driver is not supported by FluidSynth
 
         """
-        # Check a given music container for invalid notes. See docstring of self._lint_music_container for more details
-        self._lint_music_container(music_container)
+        container = self._normalize(music_container)
+        self._validate(container)
 
         if recording_file is None:
-            logger.debug("Playing music container: %s via audio", music_container)
+            logger.debug("Playing music container: %s via audio", container)
             self._start_audio_output()
-            self._play_music_container(music_container)
+            self._play_container(container)
 
         else:
-            logger.debug("Recording music container: %s to file %s", music_container, recording_file)
+            logger.debug("Recording music container: %s to file %s", container, recording_file)
             self._stop_audio_output()
             self._sequencer.start_recording(str(recording_file))
-            self._play_music_container(music_container)
+            self._play_container(container)
 
             samples = globalfs.raw_audio_string(
                 self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
@@ -295,91 +304,48 @@ class Piano:
 
             logger.debug("Finished recording to %s", recording_file)
 
-    def _play_music_container(
-        self,
-        music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
-    ) -> None:
-        """Private method to call the appropriate low level play method for given music container class.
+    def _normalize(self, music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey) -> MusicContainer:
+        """Turn what play accepts into a mingus music container.
 
-        mingus.midi.fluidsynth exposes a few different methods to play different music containers, such as Notes or
-        NoteContainers, etc. This should be abstracted for the user and this function calls the appropriate low level
-        play method from mingus.midi.fluidsynth
-
-        Args:
-            music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music
-
-        """
-        logger.debug("Attempting to play music container: %s of type: %s", music_container, type(music_container))
-
-        if isinstance(music_container, str):
-            self._sequencer.play_Note(Note(music_container))
-        elif isinstance(music_container, int):
-            self._sequencer.play_Note(self.keyboard.keys[music_container].first_note)
-        elif isinstance(music_container, PianoKey):
-            self._sequencer.play_Note(music_container.first_note)
-        elif isinstance(music_container, Note):
-            self._sequencer.play_Note(music_container)
-        elif isinstance(music_container, NoteContainer):
-            self._sequencer.play_NoteContainer(music_container)
-        elif isinstance(music_container, Bar):
-            self._sequencer.play_Bar(music_container)
-        else:
-            # Only a Track is left: _lint_music_container rejects every other type before playing
-            self._sequencer.play_Track(music_container)
-
-        logger.debug("Done playing music container: %s of type: %s", music_container, type(music_container))
-
-    def _lint_music_container(
-        self,
-        music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
-    ) -> None:
-        """Check a music container for invalid notes.
-
-        Method checks a given music container like mingus.containers.Note or more complex containers like Tracks, etc.
-        for notes that can't be found on a piano with 88 keys. In case a string is passed it also checks whether it can
-        be parsed as a mingus.containers.Note. An integer is a key index from 0 (A-0) to 87 (C-8).
-
-        Args:
-            music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music
+        A note string is parsed into a Note once, a key index or PianoKey becomes the Note of its first identity, and
+        mingus containers are returned unchanged.
 
         Raises:
-            InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
 
         """
-        logger.debug(
-            "Checking music container: %s of class %s for invalid notes", music_container, type(music_container)
-        )
-
         if isinstance(music_container, str):
-            note = Note(music_container)
-            distinct_notes_in_container = {note_to_string(note)}
-        elif isinstance(music_container, int):
+            return Note(music_container)
+        if isinstance(music_container, PianoKey):
+            return music_container.first_note
+        if isinstance(music_container, int):
             if music_container not in self.keyboard.keys:
                 msg = f"Key index must be between 0 and {len(self.keyboard) - 1}. Got {music_container}"
                 raise InvalidKeyIndexError(msg)
-            distinct_notes_in_container = {self.keyboard.keys[music_container].first_note_string}
-        elif isinstance(music_container, PianoKey):
-            distinct_notes_in_container = {music_container.first_note_string}
-        elif isinstance(music_container, Note):
-            distinct_notes_in_container = {note_to_string(music_container)}
-        elif isinstance(music_container, NoteContainer):
-            distinct_notes_in_container = set(note_container_to_note_string_list(music_container))
-        elif isinstance(music_container, Bar):
-            distinct_notes_in_container = set(bar_to_note_string_list(music_container))
-        elif isinstance(music_container, Track):
-            distinct_notes_in_container = set(track_to_note_string_list(music_container))
-        else:
-            msg = f"Unsupported music container type: {type(music_container)}"
-            raise UnsupportedContainerError(msg)
+            return self.keyboard.keys[music_container].first_note
+        if isinstance(music_container, (Note, NoteContainer, Bar, Track)):
+            return music_container
+        msg = f"Unsupported music container type: {type(music_container)}"
+        raise UnsupportedContainerError(msg)
 
-        diff = {note for note in distinct_notes_in_container if note not in self.keyboard}
-        if diff:
-            msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {diff}"
+    def _validate(self, container: MusicContainer) -> None:
+        """Check that every note of a music container is on a piano with 88 keys.
+
+        Raises:
+            InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
+
+        """
+        invalid_notes = {name for note in notes_in(container) if (name := note_name(note)) not in self.keyboard}
+        if invalid_notes:
+            msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {invalid_notes}"
             raise InvalidNoteError(msg)
 
-        logger.debug("Music container: %s of class %s looks good", music_container, type(music_container))
+    def _play_container(self, container: MusicContainer) -> None:
+        """Play a music container with the mingus sequencer method for its type (or the closest base type)."""
+        method = next(PLAY_METHODS[cls] for cls in type(container).__mro__ if cls in PLAY_METHODS)
+        logger.debug("Playing music container: %s with %s", container, method)
+        getattr(self._sequencer, method)(container)
 
     @staticmethod
     def pause(seconds: int) -> None:

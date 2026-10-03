@@ -6,7 +6,7 @@ from typing import NamedTuple
 from mingus.containers import Note
 
 from pypiano.errors import InvalidKeyIndexError, UnknownNoteNameError
-from pypiano.utils import note_to_string
+from pypiano.utils import note_name
 
 
 class BaseKey(NamedTuple):
@@ -258,7 +258,7 @@ class PianoKeyboard:
 
         """
         if isinstance(item, Note):
-            item = note_to_string(item)
+            item = note_name(item)
         return item in self._key_names
 
     def __len__(self) -> int:
