@@ -273,7 +273,8 @@ class PianoKeyboard:
         PianoKey object as Value
         """
         raw_piano_keyboard = []
-        for idx in range(10):
+        # Octaves 0 to 9; the keys outside the 88 are sliced away below, so more octaves change nothing
+        for idx in range(10):  # pragma: no mutate
             for jdx in range(12):
                 tmp_base_key = BASE_PIANO_OCTAVE_PATTERN[jdx]
                 current_key = PianoKey(

@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -154,11 +155,16 @@ def test_load_should_import_with_homebrew_lib_dir_when_macos_cannot_find_libflui
     ids=["macos with library on default path", "linux without library", "linux with library"],
 )
 def test_load_should_import_without_changing_search_path_when_no_homebrew_lookup_is_needed(
-    monkeypatch: pytest.MonkeyPatch, imports: list[tuple[str, str | None]], platform: str, found_library: str | None
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    imports: list[tuple[str, str | None]],
+    platform: str,
+    found_library: str | None,
 ) -> None:
-    # Given a platform where mingus' own lookup applies
+    # Given a platform where mingus' own lookup applies, even though Homebrew has libfluidsynth
     monkeypatch.setattr(_fluidsynth.sys, "platform", platform)
-    monkeypatch.setattr(_fluidsynth, "find_library", lambda _name: found_library)
+    monkeypatch.setattr(_fluidsynth, "find_library", lambda name: found_library if name == "fluidsynth" else None)
+    monkeypatch.setattr(_fluidsynth, "homebrew_library_dir", lambda: make_homebrew_prefix(tmp_path / "opt"))
     monkeypatch.delenv(FALLBACK, raising=False)
     # When
     _fluidsynth.load_mingus_fluidsynth()
@@ -168,7 +174,11 @@ def test_load_should_import_without_changing_search_path_when_no_homebrew_lookup
 
 @pytest.mark.parametrize(
     ("platform", "hint"),
-    [("darwin", "brew install fluid-synth"), ("linux", "apt install libfluidsynth3"), ("win32", "fluidsynth.org")],
+    [
+        ("darwin", "Install it with `brew install fluid-synth`."),
+        ("linux", "Install it with your package manager, e.g. `sudo apt install libfluidsynth3` on Debian or Ubuntu."),
+        ("win32", "See https://www.fluidsynth.org/ for how to install it."),
+    ],
 )
 @pytest.mark.usefixtures("no_homebrew")
 def test_load_should_raise_import_error_with_install_hint_when_libfluidsynth_is_missing(
@@ -183,6 +193,7 @@ def test_load_should_raise_import_error_with_install_hint_when_libfluidsynth_is_
     monkeypatch.setattr(_fluidsynth, "find_library", lambda _name: None)
     monkeypatch.setattr(_fluidsynth, "import_module", missing_library)
     # When / Then
-    with pytest.raises(ImportError, match=f"could not be found.*{hint}") as error:
+    expected = f"PyPiano needs the FluidSynth library (libfluidsynth), but it could not be found. {hint}"
+    with pytest.raises(ImportError, match=f"^{re.escape(expected)}$") as error:
         _fluidsynth.load_mingus_fluidsynth()
     assert isinstance(error.value.__cause__, ImportError)

@@ -38,6 +38,7 @@ Changelog = "https://github.com/FelixGSE/pypiano/blob/HEAD/CHANGELOG.md"
 [dependency-groups]
 dev = [
     "hypothesis>=6.168.3",
+    "mutmut>=3.8.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "requests>=2.34.2",
@@ -94,3 +95,9 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+[tool.mutmut]
+source_paths = ["pypiano/"]
+pytest_add_cli_args_test_selection = ["tests/"]
+# Tests load these scripts from the repository root
+also_copy = ["scripts/"]
