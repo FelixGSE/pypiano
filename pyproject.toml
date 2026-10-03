@@ -5,6 +5,22 @@ description = "Library to programmatically play piano"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE", "licenses/*"]
+keywords = ["piano", "music", "midi", "fluidsynth", "mingus", "sound font", "audio"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "Topic :: Multimedia :: Sound/Audio :: Sound Synthesis",
+    "Typing :: Typed",
+]
 authors = [{ name = "FelixGSE" }]
 requires-python = ">=3.11"
 dependencies = [
@@ -15,6 +31,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/FelixGSE/pypiano"
+Source = "https://github.com/FelixGSE/pypiano"
+Issues = "https://github.com/FelixGSE/pypiano/issues"
+Changelog = "https://github.com/FelixGSE/pypiano/blob/HEAD/CHANGELOG.md"
 
 [dependency-groups]
 dev = [

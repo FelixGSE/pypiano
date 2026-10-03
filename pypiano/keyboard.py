@@ -152,7 +152,7 @@ class PianoKey:
         Args:
             identity: Parameter indicating whether first or second PianoKey identity should be fetched. Must be either
                 'first' or 'second'
-        Returns
+        Returns:
             A mingus.containers.Note object with first or second note identity
         Raises:
             ValueError: If identity is not 'first' or 'second'
@@ -171,7 +171,7 @@ class PianoKey:
         Args:
             identity: Parameter indicating whether first or second PianoKey identity should be fetched. Must be either
                 'first' or 'second'
-        Returns
+        Returns:
             A string representing a note following the pattern: <NOTE_NAME><ACCIDENTAL>-<OCTAVE>
         Raises:
             ValueError: If identity is not 'first' or 'second'
