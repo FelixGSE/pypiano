@@ -81,7 +81,7 @@ class Piano:
         instrument: str | int = "Acoustic Grand Piano",
     ) -> None:
         """Load the sound fonts and instrument. Audio output is started lazily on the first play."""
-        self.__fluid_synth_sequencer = FluidSynthSequencer()
+        self._sequencer = FluidSynthSequencer()
 
         self._sound_fonts_path = Path(sound_fonts_path)
         # Set variable to track if sound fonts are loaded
@@ -107,7 +107,7 @@ class Piano:
         if self._sound_fonts_loaded:
             self._unload_sound_fonts()
 
-        if not self.__fluid_synth_sequencer.load_sound_font(str(sound_fonts_path)):
+        if not self._sequencer.load_sound_font(str(sound_fonts_path)):
             msg = f"Could not load sound fonts from {sound_fonts_path}"
             raise RuntimeError(msg)
 
@@ -125,7 +125,7 @@ class Piano:
         logger.debug("Unloading current active sound fonts from file: %s", self._sound_fonts_path)
 
         if self._sound_fonts_loaded:
-            self.__fluid_synth_sequencer.fs.sfunload(self.__fluid_synth_sequencer.sfid)
+            self._sequencer.fs.sfunload(self._sequencer.sfid)
             self._sound_fonts_loaded = False
             self._sound_fonts_path = None
         else:
@@ -146,11 +146,11 @@ class Piano:
             msg = f"{self._current_audio_driver} is not a valid audio driver. Must be one of: {VALID_AUDIO_DRIVERS}"
             raise ValueError(msg)
         if not self._audio_driver_is_active:
-            self.__fluid_synth_sequencer.start_audio_output(self._current_audio_driver)
+            self._sequencer.start_audio_output(self._current_audio_driver)
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
-            self.__fluid_synth_sequencer.fs.program_reset()
+            self._sequencer.fs.program_reset()
             self._audio_driver_is_active = True
         else:
             logger.debug("Audio output seems to be already active")
@@ -180,11 +180,11 @@ class Piano:
         and enables switching between recording to a file and playing audio output without initializing a new object.
         """
         if self._audio_driver_is_active:
-            globalfs.delete_fluid_audio_driver(self.__fluid_synth_sequencer.fs.audio_driver)
+            globalfs.delete_fluid_audio_driver(self._sequencer.fs.audio_driver)
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
-            self.__fluid_synth_sequencer.fs.program_reset()
+            self._sequencer.fs.program_reset()
             self._audio_driver_is_active = False
         else:
             logger.debug("Audio output seems to be already inactive")
@@ -202,7 +202,7 @@ class Piano:
                 fonts are used an integer with the instrument number should be provided.
 
         """
-        logger.info("Setting instrument: %s", instrument)
+        logger.debug("Setting instrument: %s", instrument)
 
         # If default sound fonts are used, check if the provided instrument string is contained in the valid
         # instruments. If different sound fonts are provided, checks are disabled
@@ -215,7 +215,7 @@ class Piano:
                 msg = f"Unknown instrument parameter. Instrument must be one of: {tuple(DEFAULT_INSTRUMENTS.keys())}"
                 raise ValueError(msg)
 
-            self.__fluid_synth_sequencer.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
+            self._sequencer.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
             self.instrument = instrument
 
         else:
@@ -223,14 +223,14 @@ class Piano:
                 msg = "When using non default sound fonts you must pass an integer for instrument parameter"
                 raise TypeError(msg)
 
-            self.__fluid_synth_sequencer.set_instrument(channel=1, instr=instrument, bank=0)
+            self._sequencer.set_instrument(channel=1, instr=instrument, bank=0)
             self.instrument = instrument
 
     def play(
         self,
         music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
-        recording_file: str | None = None,
-        record_seconds: int = 4,
+        recording_file: str | Path | None = None,
+        record_seconds: float = 4,
     ) -> None:
         """Play a provided music container and control recording settings.
 
@@ -249,22 +249,22 @@ class Piano:
         self._lint_music_container(music_container)
 
         if recording_file is None:
-            logger.info("Playing music container: %s via audio", music_container)
+            logger.debug("Playing music container: %s via audio", music_container)
             self._start_audio_output()
             self._play_music_container(music_container)
 
         else:
-            logger.info("Recording music container: %s to file %s", music_container, recording_file)
+            logger.debug("Recording music container: %s to file %s", music_container, recording_file)
             self._stop_audio_output()
-            self.__fluid_synth_sequencer.start_recording(recording_file)
+            self._sequencer.start_recording(str(recording_file))
             self._play_music_container(music_container)
 
             samples = globalfs.raw_audio_string(
-                self.__fluid_synth_sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
+                self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
             )
-            self.__fluid_synth_sequencer.wav.writeframes(bytes(samples))
+            self._sequencer.wav.writeframes(bytes(samples))
 
-            self.__fluid_synth_sequencer.wav.close()
+            self._sequencer.wav.close()
 
             # It seems we have to delete the wav attribute after recording in order to enable switching between
             # audio output and recording for all music containers. The
@@ -276,9 +276,9 @@ class Piano:
             # When wav attribute is present sleep tries to write to the wave file and if not the method just sleeps.
             # If we do not delete the wav attribute it is still there as None and play_Bar tries to write to the file
             # resulting in AttributeError: 'NoneType' object has no attribute 'write'
-            delattr(self.__fluid_synth_sequencer, "wav")
+            delattr(self._sequencer, "wav")
 
-            logger.info("Finished recording to %s", recording_file)
+            logger.debug("Finished recording to %s", recording_file)
 
     def _play_music_container(
         self,
@@ -297,20 +297,20 @@ class Piano:
         logger.debug("Attempting to play music container: %s of type: %s", music_container, type(music_container))
 
         if isinstance(music_container, str):
-            self.__fluid_synth_sequencer.play_Note(Note(music_container))
+            self._sequencer.play_Note(Note(music_container))
         elif isinstance(music_container, int):
-            self.__fluid_synth_sequencer.play_Note(self.keyboard.keys[music_container].first_note)
+            self._sequencer.play_Note(self.keyboard.keys[music_container].first_note)
         elif isinstance(music_container, PianoKey):
-            self.__fluid_synth_sequencer.play_Note(music_container.first_note)
+            self._sequencer.play_Note(music_container.first_note)
         elif isinstance(music_container, Note):
-            self.__fluid_synth_sequencer.play_Note(music_container)
+            self._sequencer.play_Note(music_container)
         elif isinstance(music_container, NoteContainer):
-            self.__fluid_synth_sequencer.play_NoteContainer(music_container)
+            self._sequencer.play_NoteContainer(music_container)
         elif isinstance(music_container, Bar):
-            self.__fluid_synth_sequencer.play_Bar(music_container)
+            self._sequencer.play_Bar(music_container)
         else:
             # Only a Track is left: _lint_music_container rejects every other type before playing
-            self.__fluid_synth_sequencer.play_Track(music_container)
+            self._sequencer.play_Track(music_container)
 
         logger.debug("Done playing music container: %s of type: %s", music_container, type(music_container))
 
