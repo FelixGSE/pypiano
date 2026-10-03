@@ -2,6 +2,7 @@
 
 import copy
 import logging
+import math
 import time
 from importlib.resources import files
 from pathlib import Path
@@ -335,14 +336,13 @@ class Piano:
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
             AudioDriverError: If the configured audio driver is not supported by FluidSynth
-            PlaybackOptionError: If bpm is not positive or velocity is outside 0 to 127
+            PlaybackOptionError: If bpm or record_seconds is not a positive finite number, or velocity is not an
+                integer from 0 to 127
             PianoClosedError: If the piano was closed
 
         """
         self._ensure_open()
-        if bpm <= 0:
-            msg = f"bpm must be positive. Got {bpm}"
-            raise PlaybackOptionError(msg)
+        self._check_playback_options(bpm=bpm, velocity=velocity, record_seconds=record_seconds)
         container = self._normalize(music_container)
         self._validate(container)
         if velocity is not None:
@@ -405,14 +405,41 @@ class Piano:
         msg = f"Unsupported music container type: {type(music_container)}"
         raise UnsupportedContainerError(msg)
 
+    @staticmethod
+    def _check_playback_options(*, bpm: float, velocity: int | None, record_seconds: float) -> None:
+        """Check the playback options of play before anything is played.
+
+        Raises:
+            PlaybackOptionError: If bpm or record_seconds is not a positive finite number, or velocity is not an
+                integer from 0 to 127
+
+        """
+        for name, value in (("bpm", bpm), ("record_seconds", record_seconds)):
+            if not math.isfinite(value) or value <= 0:
+                msg = f"{name} must be a positive finite number. Got {value}"
+                raise PlaybackOptionError(msg)
+        # bool is an int subclass, and mingus would silently truncate a float
+        if velocity is not None and (
+            isinstance(velocity, bool) or not isinstance(velocity, int) or not 0 <= velocity <= MAX_VELOCITY
+        ):
+            msg = f"velocity must be an integer between 0 and {MAX_VELOCITY}. Got {velocity!r}"
+            raise PlaybackOptionError(msg)
+
     def _validate(self, container: MusicContainer) -> None:
         """Check that every note of a music container is on a piano with 88 keys.
+
+        Notes are compared by pitch, so any spelling works, also those the keyboard has no name for, such as C##-4
+        (which is D-4).
 
         Raises:
             InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
 
         """
-        invalid_notes = {name for note in notes_in(container) if (name := note_name(note)) not in self.keyboard}
+        lowest, highest = (
+            int(self.keyboard.keys[0].first_note),
+            int(self.keyboard.keys[len(self.keyboard) - 1].first_note),
+        )
+        invalid_notes = {note_name(note) for note in notes_in(container) if not lowest <= int(note) <= highest}
         if invalid_notes:
             msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {invalid_notes}"
             raise InvalidNoteError(msg)
@@ -425,13 +452,7 @@ class Piano:
         methods, and Bars and Tracks take no velocity at all. Setting it on a copy covers every container type without
         changing the caller's notes.
 
-        Raises:
-            PlaybackOptionError: If velocity is outside 0 to 127
-
         """
-        if not 0 <= velocity <= MAX_VELOCITY:
-            msg = f"velocity must be between 0 and {MAX_VELOCITY}. Got {velocity}"
-            raise PlaybackOptionError(msg)
         container = copy.deepcopy(container)
         for note in notes_in(container):
             note.velocity = velocity
