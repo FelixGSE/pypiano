@@ -10,6 +10,15 @@ from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
 from pypiano import _mingus_compat  # noqa: F401 - patches mingus for numpy >= 2.3
+from pypiano.errors import (
+    AudioDriverError,
+    InstrumentError,
+    InstrumentTypeError,
+    InvalidKeyIndexError,
+    InvalidNoteError,
+    SoundFontError,
+    UnsupportedContainerError,
+)
 from pypiano.keyboard import PianoKey, PianoKeyboard
 from pypiano.utils import (
     bar_to_note_string_list,
@@ -109,7 +118,7 @@ class Piano:
 
         if not self._sequencer.load_sound_font(str(sound_fonts_path)):
             msg = f"Could not load sound fonts from {sound_fonts_path}"
-            raise RuntimeError(msg)
+            raise SoundFontError(msg)
 
         self._sound_fonts_loaded = True
         self._sound_fonts_path = Path(sound_fonts_path)
@@ -144,7 +153,7 @@ class Piano:
         # That is actually already done by the low level method and is included here again for transparency
         if self._current_audio_driver not in VALID_AUDIO_DRIVERS:
             msg = f"{self._current_audio_driver} is not a valid audio driver. Must be one of: {VALID_AUDIO_DRIVERS}"
-            raise ValueError(msg)
+            raise AudioDriverError(msg)
         if not self._audio_driver_is_active:
             self._sequencer.start_audio_output(self._current_audio_driver)
             # It seems to be necessary to reset the program after starting audio output
@@ -209,11 +218,11 @@ class Piano:
         if self._sound_fonts_path == DEFAULT_SOUND_FONTS:
             if isinstance(instrument, int):
                 msg = "When using default sound fonts you must pass a string for instrument parameter"
-                raise TypeError(msg)
+                raise InstrumentTypeError(msg)
 
             if instrument not in tuple(DEFAULT_INSTRUMENTS.keys()):
                 msg = f"Unknown instrument parameter. Instrument must be one of: {tuple(DEFAULT_INSTRUMENTS.keys())}"
-                raise ValueError(msg)
+                raise InstrumentError(msg)
 
             self._sequencer.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
             self.instrument = instrument
@@ -221,7 +230,7 @@ class Piano:
         else:
             if isinstance(instrument, str):
                 msg = "When using non default sound fonts you must pass an integer for instrument parameter"
-                raise TypeError(msg)
+                raise InstrumentTypeError(msg)
 
             self._sequencer.set_instrument(channel=1, instr=instrument, bank=0)
             self.instrument = instrument
@@ -243,6 +252,12 @@ class Piano:
             recording_file: Path to a wav file where audio should be saved to. If passed music_container will be
                 recorded
             record_seconds: The duration of recording in seconds
+
+        Raises:
+            InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
+            InvalidKeyIndexError: If a key index is outside 0 to 87
+            UnsupportedContainerError: If the music container type is not supported
+            AudioDriverError: If the configured audio driver is not supported by FluidSynth
 
         """
         # Check a given music container for invalid notes. See docstring of self._lint_music_container for more details
@@ -328,8 +343,9 @@ class Piano:
             music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music
 
         Raises:
-            ValueError: If illegal notes or an out of range key index are found in the given music container
-            TypeError: If the music container type is not supported
+            InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
+            InvalidKeyIndexError: If a key index is outside 0 to 87
+            UnsupportedContainerError: If the music container type is not supported
 
         """
         logger.debug(
@@ -342,7 +358,7 @@ class Piano:
         elif isinstance(music_container, int):
             if music_container not in self.keyboard.keys:
                 msg = f"Key index must be between 0 and {len(self.keyboard) - 1}. Got {music_container}"
-                raise ValueError(msg)
+                raise InvalidKeyIndexError(msg)
             distinct_notes_in_container = {self.keyboard.keys[music_container].first_note_string}
         elif isinstance(music_container, PianoKey):
             distinct_notes_in_container = {music_container.first_note_string}
@@ -356,12 +372,12 @@ class Piano:
             distinct_notes_in_container = set(track_to_note_string_list(music_container))
         else:
             msg = f"Unsupported music container type: {type(music_container)}"
-            raise TypeError(msg)
+            raise UnsupportedContainerError(msg)
 
         diff = {note for note in distinct_notes_in_container if note not in self.keyboard}
         if diff:
             msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {diff}"
-            raise ValueError(msg)
+            raise InvalidNoteError(msg)
 
         logger.debug("Music container: %s of class %s looks good", music_container, type(music_container))
 
