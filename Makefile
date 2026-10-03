@@ -8,7 +8,7 @@ PYTHONS ?= 3.11 3.12 3.13 3.14
 # Minimum line and branch coverage in percent; make coverage fails below it
 COVERAGE_MIN ?= 100
 
-.PHONY: help install soundfont soundfont-check lint test test-all coverage play record clean
+.PHONY: help install soundfont soundfont-check lint test test-all test-integration coverage play record clean
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-17s %s\n", $$1, $$2}'
@@ -30,6 +30,9 @@ test: ## Run the tests
 
 test-all: ## Run the tests on every supported Python version
 	@set -e; for v in $(PYTHONS); do echo "==> Python $$v"; uv run --isolated --python $$v pytest -q; done
+
+test-integration: ## Run the tests that play real audio
+	uv run pytest -m integration
 
 coverage: ## Run the tests with coverage; fails below COVERAGE_MIN percent
 	uv run pytest --cov --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_MIN)
