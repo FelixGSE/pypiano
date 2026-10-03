@@ -38,6 +38,9 @@ pip-delete-this-directory.txt
 core
 core.[0-9]*
 
+# Mutation testing (make mutation)
+mutants/
+
 # Unit test / coverage reports
 htmlcov/
 .coverage
