@@ -39,8 +39,18 @@ All notable changes to this project are documented in this file. The format is b
 - **Second note names:** `PianoKey.second_note_string` returned the first identity. The second names of C and B now
   follow scientific pitch notation (`C-4` is `B#-3`, `B-4` is `Cb-5`).
 - `Piano.play()` rejected key indexes and `PianoKey`s, even though its signature accepted them.
+- **Bars and tracks with rests crashed `Piano.play()`** with `TypeError: 'NoneType' object is not iterable`. mingus
+  stores a rest as `None`, which the note validation didn't expect.
+- **Instrument names were rejected** when the default sound font was loaded through a different path, for example a
+  relative one, because PyPiano compared paths instead of the resolved files.
 - **Note lookups matched parts of names:** `keyboard["C"]` returned the key B-0, and `"-4" in key` was `True`. Note
   names are now matched exactly, in `PianoKeyboard[...]`, in `in` checks and when `Piano.play()` validates notes.
+
+### Removed
+
+- **`pypiano.utils` helpers:** `note_to_string`, `note_container_to_note_string_list`, `bar_to_note_string_list` and
+  `track_to_note_string_list` are replaced by `notes_in()`, which yields the notes of any mingus container, and
+  `note_name()`. The module wasn't part of the exported API.
 
 ## 0.1.2 - 2022-01-15
 
