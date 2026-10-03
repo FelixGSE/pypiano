@@ -305,7 +305,7 @@ def test_piano_should_play_bar_with_a_rest_when_given_one(piano: Piano, sequence
     # When
     piano.play(bar)
     # Then
-    sequencer.play_Bar.assert_called_once_with(bar)
+    sequencer.play_Bar.assert_called_once_with(bar, bpm=120)
 
 
 def test_piano_should_dispatch_to_base_type_method_when_given_a_container_subclass(
@@ -320,7 +320,7 @@ def test_piano_should_dispatch_to_base_type_method_when_given_a_container_subcla
     # When
     piano.play(bar)
     # Then
-    sequencer.play_Bar.assert_called_once_with(bar)
+    sequencer.play_Bar.assert_called_once_with(bar, bpm=120)
 
 
 def test_piano_should_parse_note_string_once_when_playing_it(

@@ -24,9 +24,16 @@ All notable changes to this project are documented in this file. The format is b
 - `make soundfont` downloads the default sound font from Debian and verifies it, for clones where Git LFS cannot
   provide it.
 - `Piano.play()` accepts a key index (0 to 87) and a `PianoKey`.
+- `Piano.close()` releases FluidSynth's synthesizer, and `Piano` works as a context manager (`with Piano() as p:`).
+  After closing, `play()`, `load_sound_fonts()` and `load_instrument()` raise `PianoClosedError`.
+- `Piano.play()` takes `bpm` (tempo of Bars and Tracks, default 120) and `velocity` (0 to 127 for every note, default
+  `None` keeps each note's own velocity). A given velocity is applied to a copy, so the caller's notes don't change.
+- `Piano(sequencer=...)` accepts the mingus sequencer to play through, which makes the piano testable without
+  FluidSynth.
 - **Exceptions:** `pypiano.PyPianoError` is the base of all errors PyPiano raises on purpose. The subclasses are
   `SoundFontError`, `AudioDriverError`, `InstrumentError`, `InstrumentTypeError`, `InvalidNoteError`,
-  `UnknownNoteNameError`, `InvalidKeyIndexError` and `UnsupportedContainerError`. Each also derives from the built-in
+  `UnknownNoteNameError`, `InvalidKeyIndexError`, `UnsupportedContainerError`, `PlaybackOptionError` and
+  `PianoClosedError`. Each also derives from the built-in
   exception raised before (`ValueError`, `TypeError`, `IndexError` or `RuntimeError`), so existing `except` clauses
   keep working. An out-of-range key index raises `InvalidKeyIndexError` from both `Piano.play()` and
   `PianoKeyboard[...]`, which is both a `ValueError` and an `IndexError`. Before, the two raised different exceptions.
