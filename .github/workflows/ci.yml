@@ -68,3 +68,44 @@ jobs:
         env:
           UV_PYTHON_PREFERENCE: only-managed
         run: make coverage
+
+  integration:
+    name: Integration (real audio)
+    runs-on: ubuntu-latest
+    steps:
+      # Without LFS, so the sound font is only a pointer file; its hash keys the cache below
+      - uses: actions/checkout@v7
+      - name: Install fluidsynth
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libfluidsynth3
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install the project
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        run: uv sync --locked
+      - name: Restore the sound font
+        id: sound-font
+        uses: actions/cache@v6
+        with:
+          path: pypiano/sound_fonts/FluidR3_GM.sf2
+          # The LFS pointer contains the sound font's sha256, so a new sound font gets a new cache entry
+          key: sound-font-${{ hashFiles('pypiano/sound_fonts/FluidR3_GM.sf2') }}
+      - name: Download the sound font from Debian
+        if: steps.sound-font.outputs.cache-hit != 'true'
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        # The script never overwrites a file, so remove the LFS pointer first
+        run: |
+          rm pypiano/sound_fonts/FluidR3_GM.sf2
+          make soundfont
+      - name: Run the integration tests
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+          # Fail instead of skipping if the sound font is missing
+          PYPIANO_REQUIRE_INTEGRATION: "1"
+        run: make test-integration

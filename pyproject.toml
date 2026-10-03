@@ -82,6 +82,9 @@ ban-relative-imports = "all"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Integration tests play real audio and need the real sound font; run them with make test-integration
+addopts = ["-m", "not integration", "--strict-markers"]
+markers = ["integration: needs libfluidsynth and the real sound font (not a Git LFS pointer), plays real audio"]
 
 [tool.coverage.run]
 source = ["pypiano"]

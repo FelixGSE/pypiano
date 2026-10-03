@@ -80,6 +80,7 @@ make soundfont # download the sound font from Debian if it is missing (see Contr
 make lint      # run all pre-commit hooks on all files
 make test      # pytest; make test-all runs every supported Python version
 make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
+make test-integration  # tests with real audio: records notes and runs the README example
 make play      # play a note via audio output (needs a sound device, so not inside the container)
 make record    # record a note to demo.wav
 make record NOTE=A-4 INSTRUMENT="Honky-tonk Piano" OUTPUT=a4.wav RECORD_SECONDS=3
