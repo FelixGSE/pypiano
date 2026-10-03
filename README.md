@@ -29,26 +29,32 @@ cannot be downloaded (see [Known issues](#known-issues)).
 
 ```python
 from pypiano import Piano
-from mingus.containers import Note
+from mingus.containers import Bar, Note
 
-p = Piano()
+# The with block releases FluidSynth when it ends; without it, call p.close() when done
+with Piano() as p:
+    # Play a simple C-4 via audio
+    p.play("C-4")
 
-# Play a simple C-4 via audio
-p.play("C-4")
+    # Play a mingus Note, louder (velocity 0 to 127)
+    note = Note("C-4")
+    p.play(note, velocity=110)
 
-# Play a mingus Note
-note = Note("C-4")
-p.play(note)
+    # Record a Note to a wav file
+    p.play(note, recording_file="my_first_recording.wav", record_seconds=2)
 
-# Record a Note to a wav file
-p.play(note, recording_file="my_first_recording.wav", record_seconds=2)
+    # Play a Bar at a given tempo
+    bar = Bar()
+    for name in ("C-4", "E-4", "G-4", "C-5"):
+        bar.place_notes(name, 4)
+    p.play(bar, bpm=90)
 
-# Use a different instrument
-p.load_instrument("Honky-tonk Piano")
-p.play(note)
+    # Use a different instrument
+    p.load_instrument("Honky-tonk Piano")
+    p.play(note)
 
-# play() returns immediately while the note keeps sounding, so keep a script running until it has finished
-p.pause(2)
+    # play() returns immediately for notes while they keep sounding, so keep a script running until they finish
+    p.pause(2)
 ```
 
 The same code works with more complex mingus containers like NoteContainers, Bars and Tracks. You can also pass a

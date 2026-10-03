@@ -40,3 +40,11 @@ class InvalidKeyIndexError(PyPianoError, ValueError, IndexError):
 
 class UnsupportedContainerError(PyPianoError, TypeError):
     """The object passed to play is not a supported music container."""
+
+
+class PlaybackOptionError(PyPianoError, ValueError):
+    """A playback option such as bpm or velocity is out of range."""
+
+
+class PianoClosedError(PyPianoError, RuntimeError):
+    """The Piano was closed and can no longer play or load anything."""
