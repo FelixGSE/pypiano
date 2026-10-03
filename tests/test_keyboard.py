@@ -241,3 +241,43 @@ def test_keyboard_should_find_same_key_when_looked_up_by_either_identity(
     # Then
     assert keyboard[second] == key_index
     assert second in keyboard
+
+
+@pytest.mark.parametrize("partial_name", ["C", "-4", "4/", "b-5", "C-4/B#-3", ""])
+def test_keyboard_should_raise_index_error_when_note_name_is_only_part_of_a_key_name(
+    keyboard: PianoKeyboard, partial_name: str
+) -> None:
+    # Given a string that is only a substring of a key's names
+    # When / Then
+    with pytest.raises(IndexError, match="not a valid note on a piano"):
+        keyboard[partial_name]
+    assert partial_name not in keyboard
+
+
+@pytest.mark.parametrize("partial_name", ["C", "-4", "B#", "C-4/B#-3"])
+def test_piano_key_should_not_contain_note_name_when_it_is_only_part_of_a_key_name(
+    c4: PianoKey, partial_name: str
+) -> None:
+    # Given a C-4 key and a substring of its names
+    # When
+    is_contained = partial_name in c4
+    # Then
+    assert not is_contained
+
+
+def test_keyboard_should_find_every_key_when_looked_up_by_either_of_its_names(keyboard: PianoKeyboard) -> None:
+    # Given a new keyboard
+    # When
+    found = [(keyboard[key.first_note_string], keyboard[key.second_note_string]) for key in keyboard]
+    # Then
+    assert found == [(index, index) for index in range(88)]
+
+
+def test_keyboard_should_return_a_copy_when_asked_for_distinct_key_names(keyboard: PianoKeyboard) -> None:
+    # Given the set of key names
+    names = keyboard.distinct_key_names
+    # When it is changed by the caller
+    names.clear()
+    # Then the keyboard still knows all names
+    assert "C-4" in keyboard
+    assert len(keyboard.distinct_key_names) == 154
