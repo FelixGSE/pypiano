@@ -12,7 +12,7 @@
         {
           "type": "toml",
           "path": "uv.lock",
-          "jsonpath": "$.package[?(@.name=='pypiano')].version"
+          "jsonpath": "$.package[?(@.name.value=='pypiano')].version"
         }
       ]
     }
