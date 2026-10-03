@@ -90,8 +90,8 @@ class PianoKey:
         raise IndexError(msg)
 
     def __contains__(self, item: str) -> bool:
-        """Check if a string representing a note matches one of the note identities of a given PianoKey."""
-        return item in self.full_note_string
+        """Check if a note string is exactly one of the two note identities of the PianoKey."""
+        return item in (self.first_note_string, self.second_note_string)
 
     @property
     def key_color(self) -> str:
@@ -134,7 +134,7 @@ class PianoKey:
     @property
     def first_note(self) -> Note:
         """Get the first identity of the piano key as a mingus.containers.Note."""
-        return Note(f"{self.first_identity}-{self.octave}")
+        return Note(self.first_note_string)
 
     @property
     def second_note(self) -> Note:
@@ -159,7 +159,7 @@ class PianoKey:
 
         """
         if identity == "first":
-            return Note(self.first_identity, self.octave)
+            return self.first_note
         if identity == "second":
             return self.second_note
         msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
@@ -178,7 +178,7 @@ class PianoKey:
 
         """
         if identity == "first":
-            return f"{self.first_identity}-{self.octave}"
+            return self.first_note_string
         if identity == "second":
             return self.second_note_string
         msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
@@ -195,6 +195,13 @@ class PianoKeyboard:
     def __init__(self) -> None:
         """Create the 88 keys from A-0 to C-8."""
         self._keyboard = PianoKeyboard._create_keyboard_dict()
+        # Both note names of every key, for exact lookups; each name belongs to exactly one key
+        self._index_by_name = {
+            name: index
+            for index, key in self._keyboard.items()
+            for name in (key.first_note_string, key.second_note_string)
+        }
+        self._key_names = frozenset(self._index_by_name)
 
     def __repr__(self) -> str:
         """Return a string with the key counts and the first and last key of the keyboard."""
@@ -229,12 +236,11 @@ class PianoKeyboard:
                 msg = f"There are only 88 keys on a piano. key must be an integer between 0 and 87. Got {key}"
                 raise IndexError(msg)
             return self._keyboard[key]
-        for key_index in self._keyboard:
-            if key in self._keyboard[key_index]:
-                return key_index
-
-        msg = f"{key} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-7"
-        raise IndexError(msg)
+        try:
+            return self._index_by_name[key]
+        except KeyError:
+            msg = f"{key} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-7"
+            raise IndexError(msg) from None
 
     def __iter__(self) -> Iterator[PianoKey]:
         """Define iterating behavior for PianoKeyboard - Yield PianoKeys from left to right."""
@@ -253,7 +259,7 @@ class PianoKeyboard:
         """
         if isinstance(item, Note):
             item = note_to_string(item)
-        return item in self.distinct_key_names
+        return item in self._key_names
 
     def __len__(self) -> int:
         """Define the len of the keyboard as the number of keys."""
@@ -302,13 +308,8 @@ class PianoKeyboard:
           {'A#-1','A#-2','A#-3','A#-4','A#-5','A#-6','A#-7','A#-8','A-1','A-2','A-3','A-4','A-5','A-6',...}
 
         """
-        available_keys = []
-
-        for k in self._keyboard:
-            tmp_key = self._keyboard[k]
-            available_keys.extend([tmp_key[0], tmp_key[1]])
-
-        return set(available_keys)
+        # A copy, so callers cannot change the names the keyboard looks up
+        return set(self._key_names)
 
     @property
     def keys(self) -> dict[int, PianoKey]:

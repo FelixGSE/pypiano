@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file. The format is b
 - **Second note names:** `PianoKey.second_note_string` returned the first identity. The second names of C and B now
   follow scientific pitch notation (`C-4` is `B#-3`, `B-4` is `Cb-5`).
 - `Piano.play()` rejected key indexes and `PianoKey`s, even though its signature accepted them.
+- **Note lookups matched parts of names:** `keyboard["C"]` returned the key B-0, and `"-4" in key` was `True`. Note
+  names are now matched exactly, in `PianoKeyboard[...]`, in `in` checks and when `Piano.play()` validates notes.
 
 ## 0.1.2 - 2022-01-15
 
