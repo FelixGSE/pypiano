@@ -98,6 +98,19 @@ If Git LFS cannot download it (see [Known issues](#known-issues)), delete the po
 downloads the same file from Debian's fluid-soundfont package and checks it against the checksum in the repository. It
 never overwrites an existing file.
 
+Pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/), for example
+`feat: add a sustain pedal` or `fix: accept B#-7`, because pull requests are squash-merged and the title becomes the
+commit message that decides the next version. `feat` starts a minor release, `fix`, `perf` and `deps` a patch release,
+and a `!` (as in `feat!:`) or a `BREAKING CHANGE:` footer marks a breaking change. Other types (`docs`, `refactor`,
+`test`, `build`, `ci`, `chore`) don't start a release. A check on every pull request enforces the format.
+
+### Releasing
+
+[release-please](https://github.com/googleapis/release-please) keeps a release pull request open that bumps the
+version (`pyproject.toml`, `uv.lock`) and adds the changelog entry. Merging it tags the release, creates the GitHub
+release, runs the tests and attaches the built package. Publishing to PyPI happens in the same workflow once the
+repository variable `PUBLISH_TO_PYPI` is `true`.
+
 ## Known issues
 
 - **Sound font size and Git LFS budget** ([#13](https://github.com/FelixGSE/pypiano/issues/13)): the default sound font
