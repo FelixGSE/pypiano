@@ -53,7 +53,7 @@ def test_piano_key_should_default_second_octave_to_octave_when_not_given() -> No
 def test_piano_key_should_raise_index_error_when_indexed_beyond_its_two_identities(c4: PianoKey) -> None:
     # Given a C-4 key
     # When / Then
-    with pytest.raises(IndexError, match="only two indices"):
+    with pytest.raises(IndexError, match=r"^Out of range\. PianoKey has only two indices$"):
         c4[2]
 
 
@@ -281,3 +281,12 @@ def test_keyboard_should_return_a_copy_when_asked_for_distinct_key_names(keyboar
     # Then the keyboard still knows all names
     assert "C-4" in keyboard
     assert len(keyboard.distinct_key_names) == 154
+
+
+def test_piano_key_should_return_first_identity_when_no_identity_is_given(c4: PianoKey) -> None:
+    # Given a C-4 key
+    # When
+    note, note_string = c4.get_as_note(), c4.get_as_string()
+    # Then
+    assert (note.name, note.octave) == ("C", 4)
+    assert note_string == "C-4"
