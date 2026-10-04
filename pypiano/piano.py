@@ -7,7 +7,7 @@ import time
 from importlib.resources import files
 from pathlib import Path
 from types import TracebackType
-from typing import Self, TypeAlias
+from typing import Literal, Self, TypeAlias
 
 from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.midi import pyfluidsynth as globalfs
@@ -33,20 +33,25 @@ DRUM_CHANNEL = 9
 
 DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM_pianos.sf2"))
 
-# Valid audio driver are taken from docstring of mingus.midi.fluidsynth.FluidSynthSequencer.start_audio_output() method
-# https://github.com/bspaans/python-mingus/blob/f131620eb7353bcfbf1303b24b951a95cad2ac20/mingus/midi/fluidsynth.py#L57
-VALID_AUDIO_DRIVERS = (
-    None,
+# The audio drivers of FluidSynth 2. Which of them a FluidSynth has depends on the platform and how it was built; see
+# Synth.audio_drivers(), or `fluidsynth -a help`
+AudioDriver: TypeAlias = Literal[
     "alsa",
-    "oss",
-    "jack",
-    "portaudio",
-    "sndmgr",
     "coreaudio",
-    "Direct Sound",
     "dsound",
+    "file",
+    "jack",
+    "oboe",
+    "opensles",
+    "oss",
+    "pipewire",
+    "portaudio",
     "pulseaudio",
-)
+    "sdl2",
+    "sndman",
+    "wasapi",
+    "waveout",
+]
 
 # See a list of General Midi instruments here https://en.wikipedia.org/wiki/General_MIDI. Pianos are in section one
 DEFAULT_INSTRUMENTS = {
@@ -89,9 +94,9 @@ class Piano:
 
     Attributes:
         sound_fonts_path: Optional string or Path object pointing to a *.sf2 files. PyPiano ships sound fonts by default
-        audio_driver: Optional argument specifying audio driver to use. Following audio drivers could be used:
-            (None, "alsa", "oss", "jack", "portaudio", "sndmgr", "coreaudio","Direct Sound", "dsound", "pulseaudio").
-            Not all drivers will be available for every platform
+        audio_driver: Optional FluidSynth audio driver to play through, such as "pipewire", "pulseaudio", "coreaudio" or
+            "wasapi", or None for FluidSynth's default. Which drivers exist depends on the platform and how FluidSynth
+            was built
         instrument: Optional argument to set the instrument that should be used. If default sound fonts are used you can
             choose one of the following pianos sounds:
             ("Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
@@ -103,7 +108,7 @@ class Piano:
     def __init__(
         self,
         sound_fonts_path: str | Path = DEFAULT_SOUND_FONTS,
-        audio_driver: str | None = None,
+        audio_driver: AudioDriver | None = None,
         instrument: str | int = "Acoustic Grand Piano",
         *,
         sequencer: FluidSynthSequencer | None = None,
@@ -228,9 +233,9 @@ class Piano:
         """
         logger.debug("Starting audio output using driver: %s", self._current_audio_driver)  # pragma: no mutate
 
-        # That is actually already done by the low level method and is included here again for transparency
-        if self._current_audio_driver not in VALID_AUDIO_DRIVERS:
-            msg = f"{self._current_audio_driver} is not a valid audio driver. Must be one of: {VALID_AUDIO_DRIVERS}"
+        driver = self._current_audio_driver
+        if driver is not None and driver not in (available := self._sequencer.fs.audio_drivers()):  # ty: ignore[unresolved-attribute] - added by _mingus_compat
+            msg = f"FluidSynth has no audio driver {driver!r}. This FluidSynth has: {', '.join(available)}"
             raise AudioDriverError(msg)
         if not self._audio_driver_is_active:
             self._sequencer.start_audio_output(self._current_audio_driver)
@@ -345,7 +350,7 @@ class Piano:
             InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
-            AudioDriverError: If the configured audio driver is not supported by FluidSynth
+            AudioDriverError: If FluidSynth has no audio driver of the configured name
             PlaybackOptionError: If bpm or record_seconds is not a positive finite number, or velocity is not an
                 integer from 0 to 127
             PianoClosedError: If the piano was closed

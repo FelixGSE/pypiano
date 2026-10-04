@@ -21,7 +21,7 @@ def load_other_sound_fonts_then(action: Callable[[Piano], object]) -> Callable[[
 
 
 def unknown_audio_driver(piano: Piano) -> None:
-    piano._current_audio_driver = "SomeFantasyDriverName"
+    piano._current_audio_driver = "SomeFantasyDriverName"  # ty: ignore[invalid-assignment] - unknown on purpose
     piano._start_audio_output()
 
 

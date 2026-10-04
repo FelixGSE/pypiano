@@ -12,9 +12,13 @@ LGPL), which PyPiano uses under the terms of the GPL.
 
 mingus' Synth also has no method to change a channel's type, which PyPiano needs to turn off the drum channel. The
 set_channel_type method added below binds fluid_synth_set_channel_type the way mingus binds the other functions.
+
+Synth.start asserts that the audio driver is one of FluidSynth 1's, which rejects current ones such as pipewire or
+wasapi. It is replaced by the same method without that list, and the added audio_drivers method returns the drivers the
+loaded FluidSynth was built with, so PyPiano can check a driver name against them.
 """
 
-from ctypes import c_int, c_void_p, create_string_buffer
+from ctypes import CFUNCTYPE, c_char_p, c_int, c_void_p, create_string_buffer
 
 import numpy as np
 from mingus.midi import pyfluidsynth
@@ -45,7 +49,45 @@ def set_channel_type(self: pyfluidsynth.Synth, chan: int, channel_type: int) -> 
     return fluid_synth_set_channel_type(self.synth, chan, channel_type)
 
 
+# fluid_settings_foreach_option_t: called with the data pointer, the setting's name and one of its options
+FOREACH_OPTION = CFUNCTYPE(None, c_void_p, c_char_p, c_char_p)
+
+fluid_settings_foreach_option = pyfluidsynth.cfunc(
+    "fluid_settings_foreach_option",
+    None,
+    ("settings", c_void_p, 1),
+    ("name", c_char_p, 1),
+    ("data", c_void_p, 1),
+    ("func", FOREACH_OPTION, 1),
+)
+
+
+def audio_drivers(self: pyfluidsynth.Synth) -> tuple[str, ...]:
+    """Return the names of the audio drivers this FluidSynth was built with, such as ("alsa", "file", "jack")."""
+    drivers: list[str] = []
+    fluid_settings_foreach_option(
+        self.settings,
+        b"audio.driver",
+        None,
+        FOREACH_OPTION(lambda _data, _name, option: drivers.append(option.decode())),
+    )
+    return tuple(drivers)
+
+
+def start(self: pyfluidsynth.Synth, driver: str | None = None) -> None:
+    """Start the audio driver, or FluidSynth's default one when driver is None.
+
+    Like mingus' Synth.start, without its list of FluidSynth 1 drivers. When the driver cannot start, for example
+    without a sound device, FluidSynth logs an error and audio_driver is None.
+    """
+    if driver is not None:
+        pyfluidsynth.fluid_settings_setstr(self.settings, b"audio.driver", driver.encode())
+    self.audio_driver = pyfluidsynth.new_fluid_audio_driver(self.settings, self.synth)
+
+
 # Deliberate monkeypatch: type checkers treat each module function as its own type, so the assignments are ignored.
 pyfluidsynth.fluid_synth_write_s16_stereo = fluid_synth_write_s16_stereo  # ty: ignore[invalid-assignment]
 pyfluidsynth.raw_audio_string = raw_audio_string  # ty: ignore[invalid-assignment]
 pyfluidsynth.Synth.set_channel_type = set_channel_type  # ty: ignore[unresolved-attribute]
+pyfluidsynth.Synth.audio_drivers = audio_drivers  # ty: ignore[unresolved-attribute]
+pyfluidsynth.Synth.start = start

@@ -201,12 +201,12 @@ def test_piano_should_raise_playback_option_error_when_velocity_is_out_of_range(
 
 @pytest.mark.usefixtures("delete_audio_driver", "delete_synth")
 def test_piano_should_start_the_configured_audio_driver_when_playing(sequencer: MagicMock) -> None:
-    # Given a piano configured with the alsa driver
-    piano = Piano(audio_driver="alsa", sequencer=sequencer)
+    # Given a piano configured with pipewire, which FluidSynth has but mingus' list of FluidSynth 1 drivers lacks
+    piano = Piano(audio_driver="pipewire", sequencer=sequencer)
     # When
     piano.play("C-4")
     # Then
-    sequencer.start_audio_output.assert_called_once_with("alsa")
+    sequencer.start_audio_output.assert_called_once_with("pipewire")
 
 
 def test_piano_should_record_four_seconds_when_no_recording_length_is_given(piano: Piano, sequencer: MagicMock) -> None:
