@@ -14,16 +14,12 @@ sudo apt install libfluidsynth3   # Debian / Ubuntu
 brew install fluid-synth          # macOS
 ```
 
-The bundled sound font is stored with [Git LFS](https://git-lfs.com/), so install and set up `git-lfs` first. Then
-install PyPiano from GitHub with pip or uv:
+Then install PyPiano from GitHub with pip or uv:
 
 ```bash
 pip install git+https://github.com/FelixGSE/pypiano.git
 uv add git+https://github.com/FelixGSE/pypiano.git
 ```
-
-Installing from GitHub currently fails, because the repository has used up its Git LFS budget and the sound font
-cannot be downloaded (see [Known issues](#known-issues)).
 
 ## Usage
 
@@ -76,7 +72,8 @@ The devcontainer (`.devcontainer/`) has everything installed. Common commands go
 
 ```bash
 make install   # uv sync
-make soundfont # download the sound font from Debian if it is missing (see Contributing)
+make soundfont         # build the piano sound font from Debian's FluidR3_GM if it is missing
+make soundfont-check   # rebuild it and compare byte by byte with the bundled file
 make lint      # run all pre-commit hooks on all files
 make test      # pytest; make test-all runs every supported Python version
 make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
@@ -91,19 +88,55 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 Please add or update tests with your change: `make lint` must pass, and `make coverage` requires 100% line and branch
 coverage.
 
-The sound font is checked in with [Git LFS](https://git-lfs.com/). With `git-lfs` installed,
-`pypiano/sound_fonts/FluidR3_GM.sf2` is downloaded when you clone; otherwise install `git-lfs` and run `git lfs pull`.
-If Git LFS cannot download it (see [Known issues](#known-issues)), delete the pointer file and run `make soundfont`. It
-downloads the same file from Debian's fluid-soundfont package and checks it against the checksum in the repository. It
-never overwrites an existing file.
+The bundled sound font is built with `make soundfont` (see [The bundled sound font](#the-bundled-sound-font)); the
+devcontainer has the tool it needs. If you change how it is built, update the checksum in
+`scripts/build_sound_font.py`, and CI checks that the result is reproducible.
 
-## Known issues
+Pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/), for example
+`feat: add a sustain pedal` or `fix: accept B#-7`, because pull requests are squash-merged and the title becomes the
+commit message that decides the next version. `feat` starts a minor release, `fix`, `perf` and `deps` a patch release,
+and a `!` (as in `feat!:`) or a `BREAKING CHANGE:` footer marks a breaking change. Other types (`docs`, `refactor`,
+`test`, `build`, `ci`, `chore`) don't start a release. A check on every pull request enforces the format.
 
-- **Sound font size and Git LFS budget** ([#13](https://github.com/FelixGSE/pypiano/issues/13)): the default sound font
-  comes from the Debian [fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont) package (see
-  `scripts/get_default_sf_file.py`). It is 148 MB and contains 194 instruments, of which PyPiano uses 8. Because of its
-  size the repository has used up its Git LFS budget, so installing from GitHub fails, and the package is too large to
-  publish to PyPI.
+### Releasing
+
+[release-please](https://github.com/googleapis/release-please) keeps a release pull request open that bumps the
+version (`pyproject.toml`, `uv.lock`) and adds the changelog entry. Merging it tags the release, creates the GitHub
+release, runs the tests and attaches the built package. Publishing to PyPI happens in the same workflow once the
+repository variable `PUBLISH_TO_PYPI` is `true`.
+
+## The bundled sound font
+
+`pypiano/sound_fonts/FluidR3_GM_pianos.sf2` (19 MB) holds the eight General MIDI pianos (bank 0, programs 0 to 7) of
+FluidR3_GM by Frank Wen, as packaged in Debian's
+[fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont). The full font is 148 MB with 189
+presets, of which PyPiano uses these eight. The pianos keep their stereo samples, and they sound exactly like the full
+font: rendering every piano at several notes gives byte-identical audio with both.
+
+The file is not hand-made. `scripts/build_sound_font.py` (`make soundfont`) builds it:
+
+1. it downloads Debian's source archive and verifies it against the checksum Debian publishes,
+2. it extracts `FluidR3_GM.sf2` and verifies its checksum,
+3. it cuts the presets listed in `scripts/sound_font_recipe.toml` out with
+   [sf2-cutter](https://github.com/FelixGSE/sf2-cutter), whose release is pinned and checksum-verified in
+   `.devcontainer/Dockerfile`,
+4. it verifies the result against the checksum in the script.
+
+The build is deterministic, so you can check the bundled file yourself:
+
+```bash
+make soundfont-check   # rebuild from Debian's archive and compare byte by byte with the bundled file
+sha256sum pypiano/sound_fonts/FluidR3_GM_pianos.sf2   # 6da99144bcf97b85d6e38c54006dcf0b22afba98d3515da0a37c29e833f92a51
+```
+
+CI runs `make soundfont-check` on every pull request, and a test checks that the file contains only the SoundFont 2
+chunks, exactly the eight pianos and the FluidR3 attribution. Releases come with signed build provenance for the
+package and the sound font:
+
+```bash
+gh attestation verify FluidR3_GM_pianos.sf2 --repo FelixGSE/pypiano
+gh attestation verify pypiano-0.2.0-py3-none-any.whl --repo FelixGSE/pypiano
+```
 
 ## License
 
@@ -114,5 +147,5 @@ See [LICENSE](LICENSE). Copyright (C) 2021-2026 FelixGSE.
 PyPiano builds on [mingus](https://github.com/bspaans/python-mingus), which is licensed under GPL-3.0-or-later as well.
 Releases up to and including 0.1.2 were published under the MIT license.
 
-The bundled default sound font is distributed under the MIT license, see
+The bundled sound font, a subset of FluidR3_GM, is distributed under the MIT license, see
 [licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt).

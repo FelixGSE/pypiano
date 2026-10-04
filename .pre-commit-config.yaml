@@ -14,6 +14,8 @@ repos:
       - id: check-merge-conflict
       - id: check-case-conflict
       - id: check-added-large-files
+        # The bundled piano sound font (19 MB) is deliberate; make soundfont-check proves what it contains
+        exclude: ^pypiano/sound_fonts/FluidR3_GM_pianos\.sf2$
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
       - id: detect-private-key

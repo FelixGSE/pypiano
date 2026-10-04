@@ -17,12 +17,6 @@ else
   echo "==> gh: not authenticated (set GH_TOKEN on the host or run 'gh auth login')"
 fi
 
-# Pull LFS objects (bundled sound font) if the clone only has pointers.
-if git lfs ls-files --name-only 2>/dev/null | grep -q .; then
-  echo "==> Fetching git-lfs objects"
-  git lfs pull || echo "WARN: git lfs pull failed; to get the sound font, delete pypiano/sound_fonts/FluidR3_GM.sf2 and run 'make soundfont'"
-fi
-
 echo "==> uv sync"
 uv sync --all-extras
 
