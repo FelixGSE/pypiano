@@ -34,6 +34,8 @@ def test_readme_example_should_run_and_record_when_executed(tmp_path: Path) -> N
     )
     # Then it exits cleanly (without a sound device, playback only logs a FluidSynth error) and records audio
     assert result.returncode == 0, result.stderr
+    # FluidSynth used to warn that the drum channel has no preset, because the bundled sound font has only pianos
+    assert "No preset found" not in result.stderr
     frames, peak = read_wav(tmp_path / "my_first_recording.wav")
     assert frames == 2 * 44100
     assert peak > 0

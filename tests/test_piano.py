@@ -32,6 +32,15 @@ def test_piano_should_load_default_sound_fonts_when_created(piano: Piano, sequen
     assert piano._sound_fonts_path == DEFAULT_SOUND_FONTS
 
 
+def test_piano_should_make_the_drum_channel_a_normal_one_when_created(sequencer: MagicMock) -> None:
+    # Given the drum channel, which FluidSynth gives a drum bank the bundled piano sound font lacks
+    # When
+    Piano(sequencer=sequencer)
+    # Then channel 9 (MIDI channel 10) is melodic, on bank 0
+    sequencer.fs.set_channel_type.assert_called_once_with(9, 0)
+    sequencer.fs.bank_select.assert_called_once_with(9, 0)
+
+
 def test_piano_should_unload_current_sound_fonts_when_loading_new_ones(piano: Piano, sequencer: MagicMock) -> None:
     # Given a piano with the default sound fonts loaded
     # When
