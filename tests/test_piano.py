@@ -273,7 +273,7 @@ def test_piano_should_raise_type_error_when_container_type_is_unsupported(piano:
     # Given an object that is not a music container
     # When / Then
     with pytest.raises(TypeError, match="Unsupported music container type"):
-        piano._lint_music_container(3.5)  # ty: ignore[invalid-argument-type] - the wrong type is the point
+        piano.play(3.5)  # ty: ignore[invalid-argument-type] - the wrong type is the point
 
 
 def test_piano_should_sleep_when_paused(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -296,3 +296,61 @@ def test_piano_should_record_to_path_when_recording_file_is_a_path(
     # Then
     sequencer.start_recording.assert_called_once_with(str(recording_file))
     sequencer.fs.get_samples.assert_called_once_with(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY))
+
+
+def test_piano_should_play_bar_with_a_rest_when_given_one(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a bar with a rest, which mingus stores as None
+    bar = make_bar("C-4")
+    bar.place_rest(4)
+    # When
+    piano.play(bar)
+    # Then
+    sequencer.play_Bar.assert_called_once_with(bar)
+
+
+def test_piano_should_dispatch_to_base_type_method_when_given_a_container_subclass(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given a subclass of Bar
+    class MyBar(Bar):
+        pass
+
+    bar = MyBar()
+    bar.place_notes("C-4", 4)
+    # When
+    piano.play(bar)
+    # Then
+    sequencer.play_Bar.assert_called_once_with(bar)
+
+
+def test_piano_should_parse_note_string_once_when_playing_it(
+    piano: Piano, sequencer: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given Note construction is counted
+    note_class = MagicMock(wraps=Note)
+    monkeypatch.setattr(piano_module, "Note", note_class)
+    # When
+    piano.play("C-4")
+    # Then
+    note_class.assert_called_once_with("C-4")
+    sequencer.play_Note.assert_called_once()
+
+
+def test_piano_should_accept_instrument_names_when_default_sound_fonts_are_loaded_through_another_path(
+    piano: Piano, sequencer: MagicMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given the default sound font file, loaded through a relative path
+    monkeypatch.chdir(DEFAULT_SOUND_FONTS.parent)
+    piano.load_sound_fonts(Path(DEFAULT_SOUND_FONTS.name))
+    # When
+    piano.load_instrument("Honky-tonk Piano")
+    # Then
+    sequencer.set_instrument.assert_called_with(channel=1, instr=3, bank=0)
+
+
+def test_piano_should_forget_default_sound_fonts_when_they_are_unloaded(piano: Piano) -> None:
+    # Given a piano with the default sound fonts
+    # When
+    piano._unload_sound_fonts()
+    # Then
+    assert not piano._uses_default_sound_fonts
