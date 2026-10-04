@@ -95,11 +95,13 @@ RUN if command -v sudo >/dev/null; then echo "sudo must not be installed" >&2; e
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 
+# The venv lives outside the bind-mounted repo, so it doesn't clash with a .venv a uv on the host creates there
 ENV UV_PYTHON_INSTALL_DIR=/home/${USERNAME}/.local/share/uv/python \
+    UV_PROJECT_ENVIRONMENT=/home/${USERNAME}/.venv \
     UV_PYTHON_PREFERENCE=only-managed \
     UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
-    PATH=/home/${USERNAME}/.local/bin:/workspaces/pypiano/.venv/bin:${PATH}
+    PATH=/home/${USERNAME}/.local/bin:/home/${USERNAME}/.venv/bin:${PATH}
 
 USER ${USERNAME}
 WORKDIR /workspaces/pypiano

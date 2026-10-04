@@ -12,10 +12,13 @@ To add a system package, edit `Dockerfile` and rebuild (`Dev Containers: Rebuild
 
 ## Toolchain
 
-- **uv** is preinstalled and manages the interpreters and `.venv` (no system Python).
+- **uv** is preinstalled and manages the interpreters and the venv (no system Python).
 - The maintained CPython versions (3.11, 3.12, 3.13, 3.14) are preinstalled, so a
   multi-version test matrix (`uv run --python 3.13 ...`) works offline.
-- `post-create.sh` runs `uv sync`, which installs the project and the `dev` group into `.venv`.
+- `post-create.sh` runs `uv sync`, which installs the project and the `dev` group into `/home/dev/.venv`
+  (`UV_PROJECT_ENVIRONMENT`). It lives outside the bind-mounted repo, so a `.venv` that uv creates there on the host,
+  for another OS and Python, doesn't replace the container's, or the other way around.
+- `.python-version` (3.14) makes uv use the same Python on the host as in the container.
 - **fluidsynth** / `libfluidsynth3` are installed so `mingus.midi.pyfluidsynth` can load the library.
 - **git-lfs** is installed for old commits, which stored the full sound font with Git LFS.
 - **sf2-cutter** builds the bundled piano sound font (`make soundfont`).
