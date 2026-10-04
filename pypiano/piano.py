@@ -358,8 +358,8 @@ class Piano:
             msg = f"Unsupported music container type: {type(music_container)}"
             raise TypeError(msg)
 
-        diff = distinct_notes_in_container - self.keyboard.distinct_key_names
-        if len(diff) > 0:
+        diff = {note for note in distinct_notes_in_container if note not in self.keyboard}
+        if diff:
             msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {diff}"
             raise ValueError(msg)
 
