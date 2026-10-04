@@ -8,6 +8,7 @@
     "before 6am on monday"
   ],
   "minimumReleaseAge": "3 days",
+  "semanticCommits": "enabled",
   "constraintsFiltering": "strict",
   "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
@@ -67,6 +68,13 @@
         "patch"
       ],
       "groupName": "dev dependencies"
+    },
+    {
+      "description": "Conventional PR titles for release-please. Updates only change uv.lock, which users of the library don't get, so none of them is a release (chore instead of the preset's fix for runtime dependencies)",
+      "matchPackageNames": [
+        "*"
+      ],
+      "semanticCommitType": "chore"
     }
   ]
 }
