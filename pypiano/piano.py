@@ -1,10 +1,12 @@
 """Play and record music containers on an 88 key piano."""
 
+import copy
 import logging
 import time
 from importlib.resources import files
 from pathlib import Path
-from typing import TypeAlias
+from types import TracebackType
+from typing import Self, TypeAlias
 
 from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.midi import pyfluidsynth as globalfs
@@ -17,6 +19,8 @@ from pypiano.errors import (
     InstrumentTypeError,
     InvalidKeyIndexError,
     InvalidNoteError,
+    PianoClosedError,
+    PlaybackOptionError,
     SoundFontError,
     UnsupportedContainerError,
 )
@@ -54,6 +58,10 @@ DEFAULT_INSTRUMENTS = {
 
 # Sample rate fluidsynth renders at, used for wav recordings
 WAV_SAMPLE_FREQUENCY = 44100
+
+# Range of MIDI velocities and mingus' default tempo for bars and tracks
+MAX_VELOCITY = 127
+DEFAULT_BPM = 120
 
 # The mingus containers Piano.play turns its input into, and the sequencer method that plays each of them
 MusicContainer: TypeAlias = Note | NoteContainer | Bar | Track
@@ -93,9 +101,21 @@ class Piano:
         sound_fonts_path: str | Path = DEFAULT_SOUND_FONTS,
         audio_driver: str | None = None,
         instrument: str | int = "Acoustic Grand Piano",
+        *,
+        sequencer: FluidSynthSequencer | None = None,
     ) -> None:
-        """Load the sound fonts and instrument. Audio output is started lazily on the first play."""
-        self._sequencer = FluidSynthSequencer()
+        """Load the sound fonts and instrument. Audio output is started lazily on the first play.
+
+        Args:
+            sound_fonts_path: Path to a *.sf2 sound font file. Defaults to the one bundled with PyPiano
+            audio_driver: FluidSynth audio driver to use for playback, None for FluidSynth's default
+            instrument: Instrument name for the default sound fonts, or instrument number for other sound fonts
+            sequencer: mingus sequencer to play through. Defaults to a new FluidSynthSequencer; pass one to customize
+                or replace it, for example in tests
+
+        """
+        self._sequencer = FluidSynthSequencer() if sequencer is None else sequencer
+        self._closed = False
 
         self._sound_fonts_path: Path | None = None
         # Set variable to track if sound fonts are loaded
@@ -115,8 +135,46 @@ class Piano:
         # Initialize a piano keyboard
         self.keyboard = PianoKeyboard()
 
+    def __enter__(self) -> Self:
+        """Use the Piano as a context manager that closes it on exit."""
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        """Close the Piano."""
+        self.close()
+
+    def close(self) -> None:
+        """Stop audio output and release FluidSynth's synthesizer. Calling it again does nothing.
+
+        After closing, play, load_sound_fonts and load_instrument raise PianoClosedError.
+        """
+        if self._closed:
+            return
+        self._stop_audio_output()
+        self._unload_sound_fonts()
+        synth = self._sequencer.fs
+        globalfs.delete_fluid_synth(synth.synth)
+        globalfs.delete_fluid_settings(synth.settings)
+        # mingus' FluidSynthSequencer.__del__ calls Synth.delete() on garbage collection, which frees these handles
+        # again and crashes. With NULL handles FluidSynth's delete functions do nothing
+        synth.synth = None
+        synth.settings = None
+        self._closed = True
+        logger.debug("Closed the piano")
+
+    def _ensure_open(self) -> None:
+        if self._closed:
+            msg = "The piano is closed"
+            raise PianoClosedError(msg)
+
     def load_sound_fonts(self, sound_fonts_path: str | Path) -> None:
         """Load sound fonts from a given path."""
+        self._ensure_open()
         logger.debug("Attempting to load sound fonts from %s", sound_fonts_path)
 
         if self._sound_fonts_loaded:
@@ -199,6 +257,9 @@ class Piano:
         """
         if self._audio_driver_is_active:
             globalfs.delete_fluid_audio_driver(self._sequencer.fs.audio_driver)
+            # mingus never resets this handle; its Synth.delete(), which FluidSynthSequencer.__del__ calls on garbage
+            # collection, would delete the driver a second time
+            self._sequencer.fs.audio_driver = None
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
@@ -220,6 +281,7 @@ class Piano:
                 fonts are used an integer with the instrument number should be provided.
 
         """
+        self._ensure_open()
         logger.debug("Setting instrument: %s", instrument)
 
         # If default sound fonts are used, check if the provided instrument string is contained in the valid
@@ -249,6 +311,9 @@ class Piano:
         music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
         recording_file: str | Path | None = None,
         record_seconds: float = 4,
+        *,
+        bpm: float = DEFAULT_BPM,
+        velocity: int | None = None,
     ) -> None:
         """Play a provided music container and control recording settings.
 
@@ -261,27 +326,38 @@ class Piano:
             recording_file: Path to a wav file where audio should be saved to. If passed music_container will be
                 recorded
             record_seconds: The duration of recording in seconds
+            bpm: Tempo in beats per minute for Bars and Tracks. Notes and NoteContainers ignore it
+            velocity: How hard the keys are struck, from 0 to 127. None keeps each note's own velocity (mingus'
+                default is 64). A given velocity applies to every note; the music container passed in is not changed
 
         Raises:
             InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
             AudioDriverError: If the configured audio driver is not supported by FluidSynth
+            PlaybackOptionError: If bpm is not positive or velocity is outside 0 to 127
+            PianoClosedError: If the piano was closed
 
         """
+        self._ensure_open()
+        if bpm <= 0:
+            msg = f"bpm must be positive. Got {bpm}"
+            raise PlaybackOptionError(msg)
         container = self._normalize(music_container)
         self._validate(container)
+        if velocity is not None:
+            container = self._with_velocity(container, velocity)
 
         if recording_file is None:
             logger.debug("Playing music container: %s via audio", container)
             self._start_audio_output()
-            self._play_container(container)
+            self._play_container(container, bpm)
 
         else:
             logger.debug("Recording music container: %s to file %s", container, recording_file)
             self._stop_audio_output()
             self._sequencer.start_recording(str(recording_file))
-            self._play_container(container)
+            self._play_container(container, bpm)
 
             samples = globalfs.raw_audio_string(
                 self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
@@ -341,11 +417,33 @@ class Piano:
             msg = f"Found notes that are not on a piano with 88 keys. Invalid notes in container: {invalid_notes}"
             raise InvalidNoteError(msg)
 
-    def _play_container(self, container: MusicContainer) -> None:
+    @staticmethod
+    def _with_velocity(container: MusicContainer, velocity: int) -> MusicContainer:
+        """Return a copy of the music container with every note set to the velocity.
+
+        mingus plays each note with the velocity stored on the Note, which overrides the velocity argument of its play
+        methods, and Bars and Tracks take no velocity at all. Setting it on a copy covers every container type without
+        changing the caller's notes.
+
+        Raises:
+            PlaybackOptionError: If velocity is outside 0 to 127
+
+        """
+        if not 0 <= velocity <= MAX_VELOCITY:
+            msg = f"velocity must be between 0 and {MAX_VELOCITY}. Got {velocity}"
+            raise PlaybackOptionError(msg)
+        container = copy.deepcopy(container)
+        for note in notes_in(container):
+            note.velocity = velocity
+        return container
+
+    def _play_container(self, container: MusicContainer, bpm: float) -> None:
         """Play a music container with the mingus sequencer method for its type (or the closest base type)."""
         method = next(PLAY_METHODS[cls] for cls in type(container).__mro__ if cls in PLAY_METHODS)
-        logger.debug("Playing music container: %s with %s", container, method)
-        getattr(self._sequencer, method)(container)
+        # play_Bar and play_Track take the tempo; play_Note and play_NoteContainer take none
+        options = {"bpm": bpm} if method in {"play_Bar", "play_Track"} else {}
+        logger.debug("Playing music container: %s with %s %s", container, method, options)
+        getattr(self._sequencer, method)(container, **options)
 
     @staticmethod
     def pause(seconds: int) -> None:
