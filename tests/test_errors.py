@@ -70,7 +70,7 @@ def test_piano_should_raise_sound_font_error_that_is_also_a_runtime_error_when_s
     piano: Piano, sequencer: MagicMock
 ) -> None:
     # Given fluidsynth fails to load the sound fonts
-    sequencer.load_sound_font.return_value = False
+    sequencer.fs.sfload.return_value = -1
     # When / Then
     with pytest.raises(errors.SoundFontError) as raised:
         piano.load_sound_fonts(OTHER_SOUND_FONTS)

@@ -11,7 +11,7 @@ from pypiano.piano import Piano
 def sequencer() -> MagicMock:
     """A mock of mingus' FluidSynthSequencer, which needs libfluidsynth and a sound font."""
     mock = MagicMock(name="FluidSynthSequencer()")
-    mock.load_sound_font.return_value = True
+    mock.fs.sfload.return_value = 1
     mock.fs.get_samples.return_value = np.zeros(8, dtype=np.int16)
     mock.fs.audio_drivers.return_value = ("alsa", "file", "pipewire")
     return mock

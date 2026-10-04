@@ -1,8 +1,9 @@
 import re
 from pathlib import Path
 from typing import TypeAlias
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
+import numpy as np
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.containers.mt_exceptions import NoteFormatError
@@ -30,7 +31,9 @@ def make_bar(*notes: str) -> Bar:
 def test_piano_should_load_default_sound_fonts_when_created(piano: Piano, sequencer: MagicMock) -> None:
     # Given a piano created without arguments
     # When / Then
-    sequencer.load_sound_font.assert_called_once_with(str(DEFAULT_SOUND_FONTS))
+    sequencer.fs.sfload.assert_called_once_with(str(DEFAULT_SOUND_FONTS))
+    sequencer.fs.sfunload.assert_not_called()
+    assert sequencer.sfid == 1
     assert piano._sound_fonts_loaded
     assert piano._sound_fonts_path == DEFAULT_SOUND_FONTS
 
@@ -44,23 +47,70 @@ def test_piano_should_make_the_drum_channel_a_normal_one_when_created(sequencer:
     sequencer.fs.bank_select.assert_called_once_with(9, 0)
 
 
-def test_piano_should_unload_current_sound_fonts_when_loading_new_ones(piano: Piano, sequencer: MagicMock) -> None:
-    # Given a piano with the default sound fonts loaded
+def test_piano_should_unload_current_sound_fonts_after_loading_new_ones(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a piano with the default sound fonts loaded as id 1, and the next sound fonts getting id 2
+    sequencer.fs.sfload.return_value = 2
+    sequencer.reset_mock()
     # When
     piano.load_sound_fonts(OTHER_SOUND_FONTS)
-    # Then
-    sequencer.fs.sfunload.assert_called_once_with(sequencer.sfid)
-    sequencer.load_sound_font.assert_called_with(str(OTHER_SOUND_FONTS))
+    # Then the old sound fonts are unloaded only once the new ones are loaded
+    assert sequencer.fs.mock_calls[:2] == [call.sfload(str(OTHER_SOUND_FONTS)), call.sfunload(1)]
+    assert sequencer.sfid == 2
     assert piano._sound_fonts_loaded
     assert piano._sound_fonts_path == OTHER_SOUND_FONTS
 
 
-def test_piano_should_raise_runtime_error_when_sound_fonts_cannot_be_loaded(piano: Piano, sequencer: MagicMock) -> None:
-    # Given fluidsynth fails to load the sound fonts
-    sequencer.load_sound_font.return_value = False
+def test_piano_should_keep_sound_fonts_and_instrument_when_new_ones_cannot_be_loaded(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given a piano playing the Clavi of the default sound fonts, and sound fonts FluidSynth fails to load
+    piano.load_instrument("Clavi")
+    sequencer.fs.sfload.return_value = -1
+    sequencer.reset_mock()
     # When / Then
-    with pytest.raises(RuntimeError, match="Could not load sound fonts"):
+    with pytest.raises(RuntimeError, match=r"^Could not load sound fonts from /fantasypath/fantasyfile\.sf2$"):
         piano.load_sound_fonts(OTHER_SOUND_FONTS)
+    sequencer.fs.sfunload.assert_not_called()
+    sequencer.set_instrument.assert_not_called()
+    assert sequencer.sfid == 1
+    assert piano._sound_fonts_path == DEFAULT_SOUND_FONTS
+    assert piano._uses_default_sound_fonts
+    assert piano.instrument == "Clavi"
+
+
+@pytest.mark.parametrize(
+    ("before", "new_sound_fonts", "expected"),
+    [
+        ((DEFAULT_SOUND_FONTS, "Clavi"), DEFAULT_SOUND_FONTS, ("Clavi", 7)),
+        ((OTHER_SOUND_FONTS, 5), OTHER_SOUND_FONTS, (5, 5)),
+        ((DEFAULT_SOUND_FONTS, "Clavi"), OTHER_SOUND_FONTS, ("Clavi", 7)),
+        ((OTHER_SOUND_FONTS, 5), DEFAULT_SOUND_FONTS, ("Acoustic Grand Piano", 0)),
+    ],
+    ids=[
+        "default name kept by default sound fonts",
+        "number kept by other sound fonts",
+        "instrument kept by other sound fonts as its program",
+        "number falls back to Acoustic Grand Piano with default sound fonts",
+    ],
+)
+def test_piano_should_select_an_instrument_of_the_new_sound_fonts_when_loading_them(
+    piano: Piano,
+    sequencer: MagicMock,
+    before: tuple[Path, str | int],
+    new_sound_fonts: Path,
+    expected: tuple[str | int, int],
+) -> None:
+    # Given a piano playing an instrument of the default or of other sound fonts
+    sound_fonts, instrument = before
+    piano.load_sound_fonts(sound_fonts)
+    piano.load_instrument(instrument)
+    sequencer.set_instrument.reset_mock()
+    # When
+    piano.load_sound_fonts(new_sound_fonts)
+    # Then the channel plays an instrument of the new sound fonts: the same one if they take it, else program 0
+    expected_instrument, expected_program = expected
+    sequencer.set_instrument.assert_called_once_with(channel=1, instr=expected_program, bank=0)
+    assert piano.instrument == expected_instrument
 
 
 def test_piano_should_forget_sound_fonts_when_unloaded(piano: Piano, sequencer: MagicMock) -> None:
@@ -94,7 +144,30 @@ def test_piano_should_start_audio_output_once_when_started_repeatedly(piano: Pia
     piano._start_audio_output()
     # Then
     sequencer.start_audio_output.assert_called_once_with(None)
+    sequencer.fs.program_reset.assert_called_once_with()
     assert piano._audio_driver_is_active
+
+
+@pytest.mark.parametrize(("driver", "shown_as"), [(None, "default"), ("pipewire", "pipewire")])
+def test_piano_should_warn_and_try_again_when_fluidsynth_cannot_start_the_audio_driver(
+    piano: Piano, sequencer: MagicMock, caplog: pytest.LogCaptureFixture, driver: str | None, shown_as: str
+) -> None:
+    # Given FluidSynth fails to create the audio driver, e.g. without a sound device, which leaves no driver handle
+    piano._current_audio_driver = driver  # ty: ignore[invalid-assignment] - any configured driver
+    sequencer.fs.audio_driver = None
+    # When
+    piano._start_audio_output()
+    piano._start_audio_output()
+    # Then each start tries again and warns, and the output never counts as active
+    assert sequencer.start_audio_output.call_args_list == [call(driver), call(driver)]
+    sequencer.fs.program_reset.assert_not_called()
+    assert not piano._audio_driver_is_active
+    assert [(record.levelname, record.getMessage()) for record in caplog.records] == [
+        (
+            "WARNING",
+            f"FluidSynth could not start the {shown_as} audio driver, so nothing is heard. The next play tries again",
+        )
+    ] * 2
 
 
 def test_piano_should_raise_value_error_listing_fluidsynths_drivers_when_audio_driver_is_unknown(
@@ -240,6 +313,7 @@ def test_piano_should_raise_type_error_when_other_sound_fonts_get_an_unknown_ins
     # Given a piano with other sound fonts and its instrument
     piano.load_sound_fonts(OTHER_SOUND_FONTS)
     instrument = piano.instrument
+    sequencer.set_instrument.reset_mock()
     # When / Then
     with pytest.raises(
         TypeError,
@@ -247,7 +321,7 @@ def test_piano_should_raise_type_error_when_other_sound_fonts_get_an_unknown_ins
     ):
         piano.load_instrument("FantasyInstrument")
     assert piano.instrument is instrument
-    sequencer.set_instrument.assert_called_once()
+    sequencer.set_instrument.assert_not_called()
 
 
 # Playing and recording
@@ -352,20 +426,73 @@ def test_piano_should_raise_value_error_when_piano_key_is_not_on_the_keyboard(
     sequencer.play_Note.assert_not_called()
 
 
-def test_piano_should_write_wav_file_when_recording_file_is_given(piano: Piano, sequencer: MagicMock) -> None:
+def recording_steps(sequencer: MagicMock) -> list[object]:
+    """The sequencer calls that silence, record and render, in order."""
+    steps = {"fs.cc", "fs.get_samples", "start_recording", "play_Note", "play_Bar", "wav.writeframes", "wav.close"}
+    return [step for step in sequencer.mock_calls if step[0] in steps]
+
+
+def test_piano_should_write_wav_file_between_silences_when_recording_file_is_given(
+    piano: Piano, sequencer: MagicMock
+) -> None:
     # Given a piano with active audio output
     piano._start_audio_output()
     wav = sequencer.wav
     # When
     piano.play("C-4", recording_file="test.wav", record_seconds=2)
-    # Then
+    # Then all sound stops (and fades) before the recording starts and after it ends, so no note carries over
+    (played,), _ = sequencer.play_Note.call_args
+    assert recording_steps(sequencer) == [
+        call.fs.cc(1, 120, 0),
+        call.fs.get_samples(441),
+        call.start_recording("test.wav"),
+        call.play_Note(played),
+        call.fs.get_samples(2 * piano_module.WAV_SAMPLE_FREQUENCY),
+        # The 8 silent samples the sequencer fixture renders, as 16-bit bytes
+        call.wav.writeframes(bytes(16)),
+        call.fs.cc(1, 120, 0),
+        call.fs.get_samples(441),
+        call.wav.close(),
+    ]
     assert not piano._audio_driver_is_active
-    sequencer.start_recording.assert_called_once_with("test.wav")
-    sequencer.fs.get_samples.assert_called_once_with(2 * piano_module.WAV_SAMPLE_FREQUENCY)
-    wav.writeframes.assert_called_once()
-    wav.close.assert_called_once()
     # The wav attribute is removed so mingus' sleep does not write to a closed file
     assert not hasattr(sequencer, "wav")
+    assert wav.close.call_count == 1
+
+
+def test_piano_should_close_and_remove_the_wav_when_recording_fails(piano: Piano, sequencer: MagicMock) -> None:
+    # Given mingus raises while playing, e.g. a ZeroDivisionError for a NoteContainer with bpm=0 in a Bar
+    sequencer.play_Bar.side_effect = ZeroDivisionError
+    wav = sequencer.wav
+    # When / Then
+    with pytest.raises(ZeroDivisionError):
+        piano.play(make_bar("C-4"), recording_file="test.wav")
+    wav.writeframes.assert_not_called()
+    wav.close.assert_called_once_with()
+    assert not hasattr(sequencer, "wav")
+    # The sound stops after the failed recording too
+    assert sequencer.fs.cc.call_args_list == [call(1, 120, 0), call(1, 120, 0)]
+
+
+def test_piano_should_render_until_silent_when_stopping_sounds(piano: Piano, sequencer: MagicMock) -> None:
+    # Given FluidSynth fades out: the stopped voices first (down to the int16 minimum), then the reverb tail, down to
+    # the dither's -1 to 1
+    chunks = [[0, -32768], [1105, -1105], [-88, 88], [2, -2], [1, -1], [0, 0]]
+    sequencer.fs.get_samples.side_effect = [np.array(chunk, dtype=np.int16) for chunk in chunks]
+    # When
+    piano._stop_sounds()
+    # Then every voice is stopped at once (All Sound Off), and FluidSynth renders 10 ms at a time until it is silent
+    sequencer.fs.cc.assert_called_once_with(1, 120, 0)
+    assert sequencer.fs.get_samples.call_args_list == [call(441)] * 5
+
+
+def test_piano_should_stop_rendering_after_five_seconds_when_never_silent(piano: Piano, sequencer: MagicMock) -> None:
+    # Given FluidSynth never falls silent
+    sequencer.fs.get_samples.return_value = np.array([1000, -1000], dtype=np.int16)
+    # When
+    piano._stop_sounds()
+    # Then it renders 5 seconds in chunks of 10 ms, and no more
+    assert sequencer.fs.get_samples.call_args_list == [call(441)] * 500
 
 
 @pytest.mark.parametrize(
@@ -415,7 +542,7 @@ def test_piano_should_record_to_path_when_recording_file_is_a_path(
     piano.play("C-4", recording_file=recording_file, record_seconds=0.5)
     # Then
     sequencer.start_recording.assert_called_once_with(str(recording_file))
-    sequencer.fs.get_samples.assert_called_once_with(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY))
+    assert call(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY)) in sequencer.fs.get_samples.call_args_list
 
 
 def test_piano_should_play_bar_with_a_rest_when_given_one(piano: Piano, sequencer: MagicMock) -> None:
