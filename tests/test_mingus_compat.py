@@ -12,6 +12,7 @@ def test_compat_should_replace_mingus_helpers_when_imported() -> None:
     # When / Then
     assert pyfluidsynth.fluid_synth_write_s16_stereo is _mingus_compat.fluid_synth_write_s16_stereo
     assert pyfluidsynth.raw_audio_string is _mingus_compat.raw_audio_string
+    assert pyfluidsynth.Synth.set_channel_type is _mingus_compat.set_channel_type
 
 
 def test_write_s16_stereo_should_return_int16_samples_when_fluidsynth_fills_the_buffer(
@@ -50,3 +51,15 @@ def test_raw_audio_string_should_return_int16_bytes_when_given_samples() -> None
     raw = _mingus_compat.raw_audio_string(samples)
     # Then
     assert raw == np.array([1, -2, 3], dtype=np.int16).tobytes()
+
+
+def test_set_channel_type_should_succeed_exactly_when_the_channel_exists() -> None:
+    # Given a real FluidSynth synthesizer with mingus' 256 channels, without sound font or audio driver
+    synth = pyfluidsynth.Synth()
+    try:
+        # When / Then
+        assert _mingus_compat.set_channel_type(synth, 9, _mingus_compat.CHANNEL_TYPE_MELODIC) == 0
+        assert _mingus_compat.set_channel_type(synth, 256, _mingus_compat.CHANNEL_TYPE_MELODIC) == -1
+    finally:
+        pyfluidsynth.delete_fluid_synth(synth.synth)
+        pyfluidsynth.delete_fluid_settings(synth.settings)

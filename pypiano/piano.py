@@ -13,7 +13,7 @@ from mingus.containers import Bar, Note, NoteContainer, Track
 from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
-from pypiano import _mingus_compat  # noqa: F401 - patches mingus for numpy >= 2.3
+from pypiano._mingus_compat import CHANNEL_TYPE_MELODIC  # importing it also patches mingus for numpy >= 2.3
 from pypiano.errors import (
     AudioDriverError,
     InstrumentError,
@@ -27,6 +27,9 @@ from pypiano.errors import (
 )
 from pypiano.keyboard import PianoKey, PianoKeyboard
 from pypiano.utils import note_name, notes_in
+
+# MIDI channel 10, which General MIDI reserves for drums; mingus counts channels from 0
+DRUM_CHANNEL = 9
 
 DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM_pianos.sf2"))
 
@@ -116,6 +119,11 @@ class Piano:
 
         """
         self._sequencer = FluidSynthSequencer() if sequencer is None else sequencer
+        # FluidSynth gives the drum channel the drum bank 128, which the bundled sound font, with only pianos, lacks, so
+        # every program reset warned "No preset found on channel 9". PyPiano plays on channel 1 only, so the drum
+        # channel becomes a normal one on bank 0, like the other channels.
+        self._sequencer.fs.set_channel_type(DRUM_CHANNEL, CHANNEL_TYPE_MELODIC)  # ty: ignore[unresolved-attribute] - added by _mingus_compat
+        self._sequencer.fs.bank_select(DRUM_CHANNEL, 0)
         # The state flags marked "no mutate" are only ever checked for truthiness or overwritten before use, so mutation
         # testing's False -> None (or True) changes cannot change behavior; they are excluded as equivalent mutants
         self._closed = False  # pragma: no mutate
