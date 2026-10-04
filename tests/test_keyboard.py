@@ -1,7 +1,7 @@
 import pytest
 from mingus.containers import Note
 
-from pypiano.keyboard import PianoKey, PianoKeyboard
+from pypiano.keyboard import KeyColor, NoteIdentity, PianoKey, PianoKeyboard
 
 
 @pytest.fixture
@@ -50,6 +50,18 @@ def test_piano_key_should_default_second_octave_to_octave_when_not_given() -> No
     assert note_string == "Db-4"
 
 
+@pytest.mark.parametrize(("color", "expected"), [("white", KeyColor.WHITE), (KeyColor.BLACK, KeyColor.BLACK)])
+def test_piano_key_should_store_a_key_color_when_given_a_color_or_its_name(
+    color: KeyColor | str, expected: KeyColor
+) -> None:
+    # Given a color as an enum member or as the plain string it equals
+    # When
+    key = PianoKey("C", "B#", 4, color)
+    # Then
+    assert key.key_color is expected
+    assert key.key_color == expected.value
+
+
 def test_piano_key_should_raise_index_error_when_indexed_beyond_its_two_identities(c4: PianoKey) -> None:
     # Given a C-4 key
     # When / Then
@@ -95,7 +107,7 @@ def test_piano_key_should_return_concert_pitch_when_key_is_a4() -> None:
 
 @pytest.mark.parametrize(("identity", "expected"), [("first", ("C", 4)), ("second", ("B#", 3))])
 def test_piano_key_should_return_note_when_identity_is_valid(
-    c4: PianoKey, identity: str, expected: tuple[str, int]
+    c4: PianoKey, identity: NoteIdentity, expected: tuple[str, int]
 ) -> None:
     # Given a C-4 key
     # When
@@ -105,7 +117,9 @@ def test_piano_key_should_return_note_when_identity_is_valid(
 
 
 @pytest.mark.parametrize(("identity", "expected"), [("first", "C-4"), ("second", "B#-3")])
-def test_piano_key_should_return_note_string_when_identity_is_valid(c4: PianoKey, identity: str, expected: str) -> None:
+def test_piano_key_should_return_note_string_when_identity_is_valid(
+    c4: PianoKey, identity: NoteIdentity, expected: str
+) -> None:
     # Given a C-4 key
     # When
     note_string = c4.get_as_string(identity)
@@ -149,8 +163,8 @@ def test_keyboard_should_have_52_white_and_36_black_keys_when_created(keyboard: 
     # Then
     assert len(white_keys) == 52
     assert len(black_keys) == 36
-    assert {key.key_color for key in white_keys.values()} == {"white"}
-    assert {key.key_color for key in black_keys.values()} == {"black"}
+    assert {key.key_color for key in white_keys.values()} == {KeyColor.WHITE}
+    assert {key.key_color for key in black_keys.values()} == {KeyColor.BLACK}
 
 
 def test_keyboard_should_span_a0_to_c8_when_iterated(keyboard: PianoKeyboard) -> None:

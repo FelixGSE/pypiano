@@ -24,7 +24,7 @@ uv add git+https://github.com/FelixGSE/pypiano.git
 ## Usage
 
 ```python
-from pypiano import Piano
+from pypiano import Instrument, Piano
 from mingus.containers import Bar, Note
 
 # The with block releases FluidSynth when it ends; without it, call p.close() when done
@@ -45,8 +45,8 @@ with Piano() as p:
         bar.place_notes(name, 4)
     p.play(bar, bpm=90)
 
-    # Use a different instrument
-    p.load_instrument("Honky-tonk Piano")
+    # Use a different instrument; its name, "Honky-tonk Piano", works too
+    p.load_instrument(Instrument.HONKY_TONK_PIANO)
     p.play(note)
 
     # play() returns immediately for notes while they keep sounding, so keep a script running until they finish

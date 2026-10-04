@@ -8,7 +8,7 @@ from mingus.containers import Bar, Note, NoteContainer, Track
 
 from pypiano import piano as piano_module
 from pypiano.keyboard import PianoKey
-from pypiano.piano import DEFAULT_SOUND_FONTS, Piano
+from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, Instrument, Piano
 
 OTHER_SOUND_FONTS = Path("/fantasypath/fantasyfile.sf2")
 
@@ -141,7 +141,53 @@ def test_piano_should_set_default_instrument_when_created(piano: Piano, sequence
     # Given a piano created without arguments
     # When / Then
     sequencer.set_instrument.assert_called_once_with(channel=1, instr=0, bank=0)
+    assert piano.instrument is Instrument.ACOUSTIC_GRAND_PIANO
     assert piano.instrument == "Acoustic Grand Piano"
+
+
+@pytest.mark.parametrize(
+    ("instrument", "program"),
+    [
+        (Instrument.ACOUSTIC_GRAND_PIANO, 0),
+        (Instrument.BRIGHT_ACOUSTIC_PIANO, 1),
+        (Instrument.ELECTRIC_GRAND_PIANO, 2),
+        (Instrument.HONKY_TONK_PIANO, 3),
+        (Instrument.ELECTRIC_PIANO_1, 4),
+        (Instrument.ELECTRIC_PIANO_2, 5),
+        (Instrument.HARPSICHORD, 6),
+        (Instrument.CLAVI, 7),
+    ],
+)
+def test_instrument_should_have_its_general_midi_program_number(instrument: Instrument, program: int) -> None:
+    # Given a General MIDI piano
+    # When / Then
+    assert instrument.program == program
+    assert DEFAULT_INSTRUMENTS[instrument] == program
+
+
+@pytest.mark.parametrize("instrument", [Instrument.HONKY_TONK_PIANO, "Honky-tonk Piano"], ids=["enum", "name"])
+def test_piano_should_set_instrument_when_given_an_instrument_or_its_name(
+    piano: Piano, sequencer: MagicMock, instrument: Instrument | str
+) -> None:
+    # Given a piano with the default sound fonts
+    # When
+    piano.load_instrument(instrument)
+    # Then
+    sequencer.set_instrument.assert_called_with(channel=1, instr=3, bank=0)
+    assert piano.instrument is Instrument.HONKY_TONK_PIANO
+
+
+@pytest.mark.parametrize("instrument", [Instrument.ELECTRIC_PIANO_2, "Electric Piano 2"], ids=["enum", "name"])
+def test_piano_should_set_the_program_number_when_other_sound_fonts_get_an_instrument_or_its_name(
+    piano: Piano, sequencer: MagicMock, instrument: Instrument | str
+) -> None:
+    # Given a piano with other sound fonts, which take General MIDI program numbers
+    piano.load_sound_fonts(OTHER_SOUND_FONTS)
+    # When
+    piano.load_instrument(instrument)
+    # Then
+    sequencer.set_instrument.assert_called_with(channel=1, instr=5, bank=0)
+    assert piano.instrument is Instrument.ELECTRIC_PIANO_2
 
 
 def test_piano_should_set_instrument_when_name_is_known(piano: Piano, sequencer: MagicMock) -> None:
@@ -156,7 +202,12 @@ def test_piano_should_set_instrument_when_name_is_known(piano: Piano, sequencer:
 def test_piano_should_raise_value_error_when_instrument_name_is_unknown(piano: Piano) -> None:
     # Given a piano with the default sound fonts
     # When / Then
-    with pytest.raises(ValueError, match="Unknown instrument parameter"):
+    with pytest.raises(
+        ValueError,
+        match=r"^Unknown instrument 'FantasyInstrument'\. Instrument must be one of: Acoustic Grand Piano, "
+        r"Bright Acoustic Piano, Electric Grand Piano, Honky-tonk Piano, Electric Piano 1, Electric Piano 2, "
+        r"Harpsichord, Clavi$",
+    ):
         piano.load_instrument("FantasyInstrument")
 
 
@@ -164,7 +215,7 @@ def test_piano_should_raise_type_error_when_default_sound_fonts_get_instrument_n
     # Given a piano with the default sound fonts
     # When / Then
     with pytest.raises(
-        TypeError, match=r"^When using default sound fonts you must pass a string for instrument parameter$"
+        TypeError, match=r"^The default sound fonts take an Instrument or its name, not a program number$"
     ):
         piano.load_instrument(1)
 
@@ -181,14 +232,20 @@ def test_piano_should_set_instrument_number_when_other_sound_fonts_are_loaded(
     assert piano.instrument == 5
 
 
-def test_piano_should_raise_type_error_when_other_sound_fonts_get_instrument_name(piano: Piano) -> None:
-    # Given a piano with other sound fonts
+def test_piano_should_raise_type_error_when_other_sound_fonts_get_an_unknown_instrument_name(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given a piano with other sound fonts and its instrument
     piano.load_sound_fonts(OTHER_SOUND_FONTS)
+    instrument = piano.instrument
     # When / Then
     with pytest.raises(
-        TypeError, match=r"^When using non default sound fonts you must pass an integer for instrument parameter$"
+        TypeError,
+        match=r"^Unknown instrument 'FantasyInstrument'\. Other sound fonts take a program number or an Instrument$",
     ):
-        piano.load_instrument("Bright Acoustic Piano")
+        piano.load_instrument("FantasyInstrument")
+    assert piano.instrument is instrument
+    sequencer.set_instrument.assert_called_once()
 
 
 # Playing and recording

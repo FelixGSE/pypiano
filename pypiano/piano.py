@@ -4,6 +4,7 @@ import copy
 import logging
 import math
 import time
+from enum import StrEnum
 from importlib.resources import files
 from pathlib import Path
 from types import TracebackType
@@ -53,17 +54,33 @@ AudioDriver: TypeAlias = Literal[
     "waveout",
 ]
 
-# See a list of General Midi instruments here https://en.wikipedia.org/wiki/General_MIDI. Pianos are in section one
-DEFAULT_INSTRUMENTS = {
-    "Acoustic Grand Piano": 0,
-    "Bright Acoustic Piano": 1,
-    "Electric Grand Piano": 2,
-    "Honky-tonk Piano": 3,
-    "Electric Piano 1": 4,
-    "Electric Piano 2": 5,
-    "Harpsichord": 6,
-    "Clavi": 7,
-}
+
+class Instrument(StrEnum):
+    """The eight pianos of General MIDI, which the bundled sound font has.
+
+    Members compare equal to their General MIDI names, so "Clavi" and Instrument.CLAVI work alike. They are in General
+    MIDI's order (https://en.wikipedia.org/wiki/General_MIDI), so program is the program number, which selects the same
+    piano in any other General MIDI sound font.
+    """
+
+    ACOUSTIC_GRAND_PIANO = "Acoustic Grand Piano"
+    BRIGHT_ACOUSTIC_PIANO = "Bright Acoustic Piano"
+    ELECTRIC_GRAND_PIANO = "Electric Grand Piano"
+    HONKY_TONK_PIANO = "Honky-tonk Piano"
+    ELECTRIC_PIANO_1 = "Electric Piano 1"
+    ELECTRIC_PIANO_2 = "Electric Piano 2"
+    HARPSICHORD = "Harpsichord"
+    CLAVI = "Clavi"
+
+    @property
+    def program(self) -> int:
+        """General MIDI program number, counted from 0."""
+        return list(Instrument).index(self)
+
+
+# Program number by name, of the instruments the bundled sound font has. Derived from Instrument, which load_instrument
+# checks names against, so changing this dict changes nothing
+DEFAULT_INSTRUMENTS = {instrument.value: instrument.program for instrument in Instrument}
 
 # Sample rate fluidsynth renders at, used for wav recordings
 WAV_SAMPLE_FREQUENCY = 44100
@@ -97,11 +114,8 @@ class Piano:
         audio_driver: Optional FluidSynth audio driver to play through, such as "pipewire", "pulseaudio", "coreaudio" or
             "wasapi", or None for FluidSynth's default. Which drivers exist depends on the platform and how FluidSynth
             was built
-        instrument: Optional argument to set the instrument that should be used. If default sound fonts are used you can
-            choose one of the following pianos sounds:
-            ("Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
-             "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi"). If different sound fonts are provided
-             you should also pass an integer with the instrument number
+        instrument: The instrument to play. With the default sound fonts, an Instrument or its name, such as
+            Instrument.CLAVI or "Clavi". With other sound fonts, an Instrument or a program number
 
     """
 
@@ -109,7 +123,7 @@ class Piano:
         self,
         sound_fonts_path: str | Path = DEFAULT_SOUND_FONTS,
         audio_driver: AudioDriver | None = None,
-        instrument: str | int = "Acoustic Grand Piano",
+        instrument: Instrument | str | int = Instrument.ACOUSTIC_GRAND_PIANO,
         *,
         sequencer: FluidSynthSequencer | None = None,
     ) -> None:
@@ -118,7 +132,8 @@ class Piano:
         Args:
             sound_fonts_path: Path to a *.sf2 sound font file. Defaults to the one bundled with PyPiano
             audio_driver: FluidSynth audio driver to use for playback, None for FluidSynth's default
-            instrument: Instrument name for the default sound fonts, or instrument number for other sound fonts
+            instrument: An Instrument or its name for the default sound fonts; an Instrument or a program number for
+                other sound fonts
             sequencer: mingus sequencer to play through. Defaults to a new FluidSynthSequencer; pass one to customize
                 or replace it, for example in tests
 
@@ -284,43 +299,44 @@ class Piano:
         else:
             logger.debug("Audio output seems to be already inactive")  # pragma: no mutate
 
-    def load_instrument(self, instrument: str | int) -> None:
-        """Change the piano instrument.
-
-        Load an instrument that should be used for playing or recording music. If PyPiano default sound fonts are used
-        you can choose one of the following instruments:
-            ("Acoustic Grand Piano", "Bright Acoustic Piano", "Electric Grand Piano", "Honky-tonk Piano",
-             "Electric Piano 1", "Electric Piano 2", "Harpsichord", "Clavi")
+    def load_instrument(self, instrument: Instrument | str | int) -> None:
+        """Change the instrument that plays and records.
 
         Args:
-            instrument: String with the name of the instrument to be used for default sound fonts. If different sound
-                fonts are used an integer with the instrument number should be provided.
+            instrument: An Instrument or its name, such as Instrument.CLAVI or "Clavi", which selects its General MIDI
+                program. With other sound fonts than the default ones, a program number works too
+
+        Raises:
+            InstrumentError: If a name is not an Instrument's, with the default sound fonts
+            InstrumentTypeError: If a program number is given for the default sound fonts, or a name that is not an
+                Instrument's for other ones
+            PianoClosedError: If the piano was closed
 
         """
         self._ensure_open()
         logger.debug("Setting instrument: %s", instrument)  # pragma: no mutate
 
-        # If default sound fonts are used, check if the provided instrument string is contained in the valid
-        # instruments. If different sound fonts are provided, checks are disabled
-        if self._uses_default_sound_fonts:
-            if isinstance(instrument, int):
-                msg = "When using default sound fonts you must pass a string for instrument parameter"
-                raise InstrumentTypeError(msg)
+        if isinstance(instrument, str):
+            try:
+                instrument = Instrument(instrument)
+            except ValueError:
+                if self._uses_default_sound_fonts:
+                    msg = f"Unknown instrument {instrument!r}. Instrument must be one of: {', '.join(Instrument)}"
+                    raise InstrumentError(msg) from None
+                msg = f"Unknown instrument {instrument!r}. Other sound fonts take a program number or an Instrument"
+                raise InstrumentTypeError(msg) from None
 
-            if instrument not in tuple(DEFAULT_INSTRUMENTS.keys()):
-                msg = f"Unknown instrument parameter. Instrument must be one of: {tuple(DEFAULT_INSTRUMENTS.keys())}"
-                raise InstrumentError(msg)
-
-            self._sequencer.set_instrument(channel=1, instr=DEFAULT_INSTRUMENTS[instrument], bank=0)
-            self.instrument = instrument
-
+        if isinstance(instrument, Instrument):
+            program = instrument.program
+        elif self._uses_default_sound_fonts:
+            # The default sound fonts have only the eight pianos; a number would silently select nothing
+            msg = "The default sound fonts take an Instrument or its name, not a program number"
+            raise InstrumentTypeError(msg)
         else:
-            if isinstance(instrument, str):
-                msg = "When using non default sound fonts you must pass an integer for instrument parameter"
-                raise InstrumentTypeError(msg)
+            program = instrument
 
-            self._sequencer.set_instrument(channel=1, instr=instrument, bank=0)
-            self.instrument = instrument
+        self._sequencer.set_instrument(channel=1, instr=program, bank=0)
+        self.instrument = instrument
 
     def play(
         self,
