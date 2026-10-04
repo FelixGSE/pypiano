@@ -43,16 +43,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Signed build provenance (gh attestation verify)
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
-          # The sound font is part of the package
-          lfs: true
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
       - name: Build the sdist and wheel
         run: uv build
+      # Signs which repository, commit and workflow built these files, so users can check with
+      # gh attestation verify <file> --repo FelixGSE/pypiano
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/*
+            pypiano/sound_fonts/FluidR3_GM_pianos.sf2
       - uses: actions/upload-artifact@v7
         with:
           name: dist
