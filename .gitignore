@@ -34,6 +34,10 @@ var/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Core dumps (FluidSynth crashes during integration tests)
+core
+core.[0-9]*
+
 # Unit test / coverage reports
 htmlcov/
 .coverage

@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file. The format is b
   After closing, `play()`, `load_sound_fonts()` and `load_instrument()` raise `PianoClosedError`.
 - `Piano.play()` takes `bpm` (tempo of Bars and Tracks, default 120) and `velocity` (0 to 127 for every note, default
   `None` keeps each note's own velocity). A given velocity is applied to a copy, so the caller's notes don't change.
+- `make test-integration` runs tests that record real audio and run the README example; CI runs them in their own
+  job. `make test` and `make coverage` leave them out.
 - `Piano(sequencer=...)` accepts the mingus sequencer to play through, which makes the piano testable without
   FluidSynth.
 - **Exceptions:** `pypiano.PyPianoError` is the base of all errors PyPiano raises on purpose. The subclasses are
