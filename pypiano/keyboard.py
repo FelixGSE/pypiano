@@ -1,12 +1,24 @@
 """Model of an 88 key piano keyboard."""
 
 from collections.abc import Iterator
-from typing import NamedTuple
+from enum import StrEnum
+from typing import Literal, NamedTuple, TypeAlias
 
 from mingus.containers import Note
 
 from pypiano.errors import InvalidKeyIndexError, UnknownNoteNameError
 from pypiano.utils import note_name
+
+
+class KeyColor(StrEnum):
+    """Color of a piano key. Members compare equal to their values, so "white" and KeyColor.WHITE work alike."""
+
+    WHITE = "white"
+    BLACK = "black"
+
+
+# Which of a key's two note names to use: C-4's first identity is C-4, its second B#-3
+NoteIdentity: TypeAlias = Literal["first", "second"]
 
 
 class BaseKey(NamedTuple):
@@ -18,23 +30,23 @@ class BaseKey(NamedTuple):
 
     first: str
     second: str
-    color: str
+    color: KeyColor
     second_octave_offset: int = 0
 
 
 BASE_PIANO_OCTAVE_PATTERN = (
-    BaseKey("C", "B#", "white", second_octave_offset=-1),
-    BaseKey("C#", "Db", "black"),
-    BaseKey("D", "D", "white"),
-    BaseKey("D#", "Eb", "black"),
-    BaseKey("E", "Fb", "white"),
-    BaseKey("F", "E#", "white"),
-    BaseKey("F#", "Gb", "black"),
-    BaseKey("G", "G", "white"),
-    BaseKey("G#", "Ab", "black"),
-    BaseKey("A", "A", "white"),
-    BaseKey("A#", "Bb", "black"),
-    BaseKey("B", "Cb", "white", second_octave_offset=1),
+    BaseKey("C", "B#", KeyColor.WHITE, second_octave_offset=-1),
+    BaseKey("C#", "Db", KeyColor.BLACK),
+    BaseKey("D", "D", KeyColor.WHITE),
+    BaseKey("D#", "Eb", KeyColor.BLACK),
+    BaseKey("E", "Fb", KeyColor.WHITE),
+    BaseKey("F", "E#", KeyColor.WHITE),
+    BaseKey("F#", "Gb", KeyColor.BLACK),
+    BaseKey("G", "G", KeyColor.WHITE),
+    BaseKey("G#", "Ab", KeyColor.BLACK),
+    BaseKey("A", "A", KeyColor.WHITE),
+    BaseKey("A#", "Bb", KeyColor.BLACK),
+    BaseKey("B", "Cb", KeyColor.WHITE, second_octave_offset=1),
 )
 
 
@@ -60,7 +72,7 @@ class PianoKey:
         first_identity: str,
         second_identity: str,
         octave: int,
-        key_color: str,
+        key_color: KeyColor | str,
         key_index: int | None = None,
         *,
         second_octave: int | None = None,
@@ -95,17 +107,18 @@ class PianoKey:
         return item in (self.first_note_string, self.second_note_string)
 
     @property
-    def key_color(self) -> str:
+    def key_color(self) -> KeyColor:
         """Get key color of a given PianoKey object."""
         return self._key_color
 
     @key_color.setter
-    def key_color(self, color: str) -> None:
+    def key_color(self, color: KeyColor | str) -> None:
         """Set key color of a given PianoKey object."""
-        if color not in ("white", "black"):
+        try:
+            self._key_color = KeyColor(color)
+        except ValueError:
             msg = "Key color can only be white or black"
-            raise ValueError(msg)
-        self._key_color = color
+            raise ValueError(msg) from None
 
     @property
     def key_index(self) -> int | None:
@@ -147,7 +160,7 @@ class PianoKey:
         """Get frequency of a given PianoKey. See docstring of mingus.containers.Note.to_hertz for more details."""
         return self.first_note.to_hertz()
 
-    def get_as_note(self, identity: str = "first") -> Note:
+    def get_as_note(self, identity: NoteIdentity = "first") -> Note:
         """Get first or second PianoKey identity as a mingus.containers.Note.
 
         Args:
@@ -166,7 +179,7 @@ class PianoKey:
         msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
         raise ValueError(msg)
 
-    def get_as_string(self, identity: str = "first") -> str:
+    def get_as_string(self, identity: NoteIdentity = "first") -> str:
         """Get first or second PianoKey identity as a note string.
 
         Args:
@@ -320,9 +333,9 @@ class PianoKeyboard:
     @property
     def white_keys(self) -> dict[int, PianoKey]:
         """Return a sub dictionary of all white keys from keyboard."""
-        return {key: piano_key for key, piano_key in self._keyboard.items() if "white" in piano_key.key_color}
+        return {key: piano_key for key, piano_key in self._keyboard.items() if piano_key.key_color == KeyColor.WHITE}
 
     @property
     def black_keys(self) -> dict[int, PianoKey]:
         """Return a sub dictionary of all black keys from keyboard."""
-        return {key: piano_key for key, piano_key in self._keyboard.items() if "black" in piano_key.key_color}
+        return {key: piano_key for key, piano_key in self._keyboard.items() if piano_key.key_color == KeyColor.BLACK}
