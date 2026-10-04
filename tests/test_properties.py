@@ -139,6 +139,32 @@ def test_piano_should_play_a_note_exactly_when_its_pitch_is_on_the_keyboard(note
             piano.play(note)
 
 
+# Random text, and text from the characters of note names, which forms valid and almost valid notes far more often
+note_strings = st.text(max_size=8) | st.text(alphabet="ABCDEFGHcb#- 0123456789", max_size=6)
+
+
+@given(note_strings)
+# The strings mingus rejects with NoteFormatError, ValueError or IndexError, and a name without an octave
+@example("H-4")
+@example("c-4")
+@example(" C-4")
+@example("C-4-1")
+@example("C-x")
+@example("C-")
+@example("")
+@example("C")
+def test_piano_should_play_a_string_or_raise_invalid_note_error_when_given_any_text(text: str) -> None:
+    # Given any text
+    piano, sequencer = make_piano()
+    # When / Then it plays a note, or raises InvalidNoteError, never another error
+    try:
+        piano.play(text)
+    except InvalidNoteError:
+        sequencer.play_Note.assert_not_called()
+    else:
+        sequencer.play_Note.assert_called_once()
+
+
 @given(st.integers())
 def test_piano_should_play_a_key_index_or_raise_invalid_key_index_error_when_given_any_integer(index: int) -> None:
     # Given any integer
