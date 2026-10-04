@@ -27,5 +27,5 @@ if [[ -f .pre-commit-config.yaml ]]; then
 fi
 
 echo "==> fluidsynth: $(fluidsynth --version 2>/dev/null | head -1 || echo 'not found')"
-echo "==> python: $(.venv/bin/python --version 2>/dev/null || echo 'venv not created')"
-echo "==> Done. Activate with: source .venv/bin/activate (or just use uv run ...)"
+echo "==> python: $("$UV_PROJECT_ENVIRONMENT/bin/python" --version 2>/dev/null || echo 'venv not created')"
+echo "==> Done. Activate with: source $UV_PROJECT_ENVIRONMENT/bin/activate (or just use uv run ...)"
