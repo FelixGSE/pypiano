@@ -1,10 +1,14 @@
 from ctypes import Array, c_void_p, memmove
+from pathlib import Path
+from typing import get_args
+from unittest.mock import MagicMock, call
 
 import numpy as np
 import pytest
 from mingus.midi import pyfluidsynth
 
 from pypiano import _mingus_compat
+from pypiano.piano import AudioDriver
 
 
 def test_compat_should_replace_mingus_helpers_when_imported() -> None:
@@ -13,6 +17,8 @@ def test_compat_should_replace_mingus_helpers_when_imported() -> None:
     assert pyfluidsynth.fluid_synth_write_s16_stereo is _mingus_compat.fluid_synth_write_s16_stereo
     assert pyfluidsynth.raw_audio_string is _mingus_compat.raw_audio_string
     assert pyfluidsynth.Synth.set_channel_type is _mingus_compat.set_channel_type
+    assert pyfluidsynth.Synth.audio_drivers is _mingus_compat.audio_drivers
+    assert pyfluidsynth.Synth.start is _mingus_compat.start
 
 
 def test_write_s16_stereo_should_return_int16_samples_when_fluidsynth_fills_the_buffer(
@@ -63,3 +69,57 @@ def test_set_channel_type_should_succeed_exactly_when_the_channel_exists() -> No
     finally:
         pyfluidsynth.delete_fluid_synth(synth.synth)
         pyfluidsynth.delete_fluid_settings(synth.settings)
+
+
+def test_audio_drivers_should_return_fluidsynths_drivers_when_called() -> None:
+    # Given a real FluidSynth synthesizer
+    synth = pyfluidsynth.Synth()
+    try:
+        # When
+        drivers = _mingus_compat.audio_drivers(synth)
+    finally:
+        pyfluidsynth.delete_fluid_synth(synth.synth)
+        pyfluidsynth.delete_fluid_settings(synth.settings)
+    # Then every FluidSynth has the file driver, and AudioDriver names all the drivers it has
+    assert "file" in drivers
+    assert set(drivers) <= set(get_args(AudioDriver))
+
+
+@pytest.mark.parametrize(
+    ("driver", "settings_calls"),
+    [("pipewire", [call.setstr("settings", b"audio.driver", b"pipewire")]), (None, [])],
+    ids=["given driver", "FluidSynth's default"],
+)
+def test_start_should_set_the_driver_and_create_it_when_called(
+    monkeypatch: pytest.MonkeyPatch, driver: str | None, settings_calls: list[object]
+) -> None:
+    # Given FluidSynth's calls replaced, so their arguments can be checked without a sound device
+    fluidsynth = MagicMock()
+    monkeypatch.setattr(pyfluidsynth, "fluid_settings_setstr", fluidsynth.setstr)
+    monkeypatch.setattr(pyfluidsynth, "new_fluid_audio_driver", fluidsynth.new_driver)
+    synth = MagicMock(settings="settings", synth="synth")
+    # When
+    _mingus_compat.start(synth, driver)
+    # Then
+    assert fluidsynth.mock_calls == [*settings_calls, call.new_driver("settings", "synth")]
+    assert synth.audio_driver is fluidsynth.new_driver.return_value
+
+
+def test_start_should_start_a_driver_outside_mingus_list_when_fluidsynth_has_it(tmp_path: Path) -> None:
+    # Given a real FluidSynth synthesizer whose file driver writes to a temporary file; mingus only knows FluidSynth 1's
+    # drivers, which don't include it
+    synth = pyfluidsynth.Synth()
+    pyfluidsynth.fluid_settings_setstr(synth.settings, b"audio.file.name", str(tmp_path / "out.raw").encode())
+    try:
+        # When
+        _mingus_compat.start(synth, "file")
+        started = synth.audio_driver
+        pyfluidsynth.delete_fluid_audio_driver(started)
+        _mingus_compat.start(synth, "SomeFantasyDriverName")
+        unknown = synth.audio_driver
+    finally:
+        pyfluidsynth.delete_fluid_synth(synth.synth)
+        pyfluidsynth.delete_fluid_settings(synth.settings)
+    # Then the file driver starts, and an unknown one leaves no driver (FluidSynth logs an error)
+    assert started is not None
+    assert unknown is None

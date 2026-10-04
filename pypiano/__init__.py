@@ -18,13 +18,14 @@ from pypiano.errors import (
     UnsupportedContainerError,
 )
 from pypiano.keyboard import PianoKey, PianoKeyboard
-from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, Piano
+from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, AudioDriver, Piano
 
 __version__ = version("pypiano")
 
 __all__ = [
     "DEFAULT_INSTRUMENTS",
     "DEFAULT_SOUND_FONTS",
+    "AudioDriver",
     "AudioDriverError",
     "InstrumentError",
     "InstrumentTypeError",

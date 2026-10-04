@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import TypeAlias
 from unittest.mock import MagicMock
@@ -94,12 +95,20 @@ def test_piano_should_start_audio_output_once_when_started_repeatedly(piano: Pia
     assert piano._audio_driver_is_active
 
 
-def test_piano_should_raise_value_error_when_audio_driver_is_unknown(piano: Piano) -> None:
-    # Given a piano configured with an unknown audio driver
-    piano._current_audio_driver = "SomeFantasyDriverName"
+def test_piano_should_raise_value_error_listing_fluidsynths_drivers_when_audio_driver_is_unknown(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given a piano configured with an audio driver this FluidSynth doesn't have
+    piano._current_audio_driver = "SomeFantasyDriverName"  # ty: ignore[invalid-assignment] - unknown on purpose
     # When / Then
-    with pytest.raises(ValueError, match="is not a valid audio driver"):
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "FluidSynth has no audio driver 'SomeFantasyDriverName'. This FluidSynth has: alsa, file, pipewire"
+        ),
+    ):
         piano._start_audio_output()
+    sequencer.start_audio_output.assert_not_called()
 
 
 def test_piano_should_delete_audio_driver_when_stopping_active_output(

@@ -63,6 +63,20 @@ def test_piano_should_record_louder_note_when_velocity_is_higher(tmp_path: Path)
     assert read_wav(loud)[1] > read_wav(soft)[1] > 0
 
 
+def test_piano_should_play_through_a_driver_mingus_does_not_know_when_fluidsynth_has_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Given FluidSynth's file driver, which writes to fluidsynth.raw or .wav in the working directory instead of a sound
+    # device, and which mingus' list of FluidSynth 1 drivers lacks
+    monkeypatch.chdir(tmp_path)
+    # When
+    with Piano(audio_driver="file") as piano:
+        piano.play("C-4")
+    # Then
+    (output,) = tmp_path.glob("fluidsynth.*")
+    assert output.stat().st_size > 0
+
+
 def test_python_should_exit_cleanly_when_a_closed_piano_is_garbage_collected(tmp_path: Path) -> None:
     # Given a script that plays, records, closes twice and lets mingus' FluidSynthSequencer.__del__ run at exit,
     # which used to free FluidSynth's synth a second time and crash
