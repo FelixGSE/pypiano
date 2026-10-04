@@ -47,7 +47,6 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
-      # No LFS: the tests mock fluidsynth and do not need the sound font
       - uses: actions/checkout@v7
       - name: Install fluidsynth
         # mingus loads libfluidsynth when it is imported
@@ -68,3 +67,42 @@ jobs:
         env:
           UV_PYTHON_PREFERENCE: only-managed
         run: make coverage
+
+  sound-font:
+    name: Sound font is reproducible
+    runs-on: ubuntu-latest
+    env:
+      PYPIANO_ARCHIVE_CACHE: ${{ github.workspace }}/.archive-cache
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install sf2-cutter
+        # Same version and checksum as SF2_CUTTER_* in .devcontainer/Dockerfile
+        env:
+          SF2_CUTTER_VERSION: "0.1.0"
+          SF2_CUTTER_SHA256: 9d67b219dd3839229a27232df48148b6de7dfd3ef791921e06d69e627974db06
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sf2-cutter.tar.gz" \
+            "https://github.com/FelixGSE/sf2-cutter/releases/download/v$SF2_CUTTER_VERSION/sf2-cutter-x86_64-unknown-linux-musl.tar.gz"
+          echo "$SF2_CUTTER_SHA256  $RUNNER_TEMP/sf2-cutter.tar.gz" | sha256sum -c -
+          sudo tar -xzf "$RUNNER_TEMP/sf2-cutter.tar.gz" -C /usr/local/bin sf2-cutter
+          sf2-cutter --version
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install the project
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        run: uv sync --locked
+      - name: Restore Debian's fluid-soundfont archive
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.PYPIANO_ARCHIVE_CACHE }}
+          # The script verifies the archive against Debian's checksum, cached or not
+          key: fluid-soundfont-3.1-${{ hashFiles('scripts/build_sound_font.py') }}
+          restore-keys: fluid-soundfont-3.1-
+      - name: Rebuild the sound font and compare it with the bundled file
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        run: make soundfont-check

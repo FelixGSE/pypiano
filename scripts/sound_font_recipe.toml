@@ -1,0 +1,6 @@
+# sf2-cutter recipe for the sound font PyPiano bundles: the eight General MIDI pianos (bank 0, programs 0 to 7) of
+# FluidR3_GM. They keep their program numbers, which pypiano.DEFAULT_INSTRUMENTS refers to.
+# Used by scripts/build_sound_font.py (make soundfont).
+presets = ["0:0", "0:1", "0:2", "0:3", "0:4", "0:5", "0:6", "0:7"]
+keep_drums = false
+renumber = false

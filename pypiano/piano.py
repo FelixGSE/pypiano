@@ -27,7 +27,7 @@ from pypiano.errors import (
 from pypiano.keyboard import PianoKey, PianoKeyboard
 from pypiano.utils import note_name, notes_in
 
-DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM.sf2"))
+DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM_pianos.sf2"))
 
 # Valid audio driver are taken from docstring of mingus.midi.fluidsynth.FluidSynthSequencer.start_audio_output() method
 # https://github.com/bspaans/python-mingus/blob/f131620eb7353bcfbf1303b24b951a95cad2ac20/mingus/midi/fluidsynth.py#L57

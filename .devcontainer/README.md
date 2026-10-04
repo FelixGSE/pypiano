@@ -17,11 +17,12 @@ To add a system package, edit `Dockerfile` and rebuild (`Dev Containers: Rebuild
   multi-version test matrix (`uv run --python 3.13 ...`) works offline.
 - `post-create.sh` runs `uv sync`, which installs the project and the `dev` group into `.venv`.
 - **fluidsynth** / `libfluidsynth3` are installed so `mingus.midi.pyfluidsynth` can load the library.
-- **git-lfs** is installed; the post-create script pulls the sound font if the clone has pointers.
+- **git-lfs** is installed for old commits, which stored the full sound font with Git LFS.
+- **sf2-cutter** builds the bundled piano sound font (`make soundfont`).
 
 ## Hooks and linters
 
-**prek** (a fast `pre-commit` drop-in), **hadolint** and **dprint** are downloaded from
+**prek** (a fast `pre-commit` drop-in), **hadolint**, **dprint** and **sf2-cutter** are downloaded from
 their GitHub releases in the `Dockerfile`, pinned by version and verified against a
 sha256 per architecture (amd64/arm64). To bump one, change its `*_VERSION` and both
 `*_SHA256_*` args.
