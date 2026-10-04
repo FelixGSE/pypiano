@@ -145,7 +145,9 @@ def test_piano_should_raise_value_error_when_instrument_name_is_unknown(piano: P
 def test_piano_should_raise_type_error_when_default_sound_fonts_get_instrument_number(piano: Piano) -> None:
     # Given a piano with the default sound fonts
     # When / Then
-    with pytest.raises(TypeError, match="must pass a string"):
+    with pytest.raises(
+        TypeError, match=r"^When using default sound fonts you must pass a string for instrument parameter$"
+    ):
         piano.load_instrument(1)
 
 
@@ -165,7 +167,9 @@ def test_piano_should_raise_type_error_when_other_sound_fonts_get_instrument_nam
     # Given a piano with other sound fonts
     piano.load_sound_fonts(OTHER_SOUND_FONTS)
     # When / Then
-    with pytest.raises(TypeError, match="must pass an integer"):
+    with pytest.raises(
+        TypeError, match=r"^When using non default sound fonts you must pass an integer for instrument parameter$"
+    ):
         piano.load_instrument("Bright Acoustic Piano")
 
 
@@ -272,7 +276,7 @@ def test_piano_should_raise_value_error_when_container_has_notes_outside_the_key
 def test_piano_should_raise_type_error_when_container_type_is_unsupported(piano: Piano) -> None:
     # Given an object that is not a music container
     # When / Then
-    with pytest.raises(TypeError, match="Unsupported music container type"):
+    with pytest.raises(TypeError, match=r"^Unsupported music container type: <class 'float'>$"):
         piano.play(3.5)  # ty: ignore[invalid-argument-type] - the wrong type is the point
 
 

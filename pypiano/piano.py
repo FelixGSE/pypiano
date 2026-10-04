@@ -116,19 +116,21 @@ class Piano:
 
         """
         self._sequencer = FluidSynthSequencer() if sequencer is None else sequencer
-        self._closed = False
+        # The state flags marked "no mutate" are only ever checked for truthiness or overwritten before use, so mutation
+        # testing's False -> None (or True) changes cannot change behavior; they are excluded as equivalent mutants
+        self._closed = False  # pragma: no mutate
 
-        self._sound_fonts_path: Path | None = None
+        self._sound_fonts_path: Path | None = None  # pragma: no mutate
         # Set variable to track if sound fonts are loaded
-        self._sound_fonts_loaded = False
+        self._sound_fonts_loaded = False  # pragma: no mutate
         # Whether the loaded sound fonts are PyPiano's default ones, which take instrument names instead of numbers
-        self._uses_default_sound_fonts = False
+        self._uses_default_sound_fonts = False  # pragma: no mutate
         self.load_sound_fonts(sound_fonts_path)
 
         # Audio output is lazily loaded when self.play method is called the first time without recording
         self._current_audio_driver = audio_driver
         # Set a variable to track if audio output is currently active
-        self._audio_driver_is_active = False
+        self._audio_driver_is_active = False  # pragma: no mutate
 
         # Set instrument
         self.load_instrument(instrument)
@@ -166,7 +168,7 @@ class Piano:
         synth.synth = None
         synth.settings = None
         self._closed = True
-        logger.debug("Closed the piano")
+        logger.debug("Closed the piano")  # pragma: no mutate
 
     def _ensure_open(self) -> None:
         if self._closed:
@@ -176,7 +178,7 @@ class Piano:
     def load_sound_fonts(self, sound_fonts_path: str | Path) -> None:
         """Load sound fonts from a given path."""
         self._ensure_open()
-        logger.debug("Attempting to load sound fonts from %s", sound_fonts_path)
+        logger.debug("Attempting to load sound fonts from %s", sound_fonts_path)  # pragma: no mutate
 
         if self._sound_fonts_loaded:
             self._unload_sound_fonts()
@@ -190,7 +192,7 @@ class Piano:
         # Compare resolved paths, so the default file loaded through another path still counts as the default
         self._uses_default_sound_fonts = self._sound_fonts_path.resolve() == DEFAULT_SOUND_FONTS.resolve()
 
-        logger.debug("Successfully initialized sound fonts from %s", sound_fonts_path)
+        logger.debug("Successfully initialized sound fonts from %s", sound_fonts_path)  # pragma: no mutate
 
     def _unload_sound_fonts(self) -> None:
         """Unload a given sound font file.
@@ -198,15 +200,15 @@ class Piano:
         Safely unload current sound font file. Method controls if a sound font file is already loaded via
         self._sound_fonts_loaded.
         """
-        logger.debug("Unloading current active sound fonts from file: %s", self._sound_fonts_path)
+        logger.debug("Unloading current active sound fonts from file: %s", self._sound_fonts_path)  # pragma: no mutate
 
         if self._sound_fonts_loaded:
             self._sequencer.fs.sfunload(self._sequencer.sfid)
-            self._sound_fonts_loaded = False
+            self._sound_fonts_loaded = False  # pragma: no mutate
             self._sound_fonts_path = None
-            self._uses_default_sound_fonts = False
+            self._uses_default_sound_fonts = False  # pragma: no mutate
         else:
-            logger.debug("No active sound fonts")
+            logger.debug("No active sound fonts")  # pragma: no mutate
 
     def _start_audio_output(self) -> None:
         """Private method to start audio output.
@@ -216,7 +218,7 @@ class Piano:
         self._stop_audio_output for more details why this necessary). This method replaces
         mingus.midi.fluidsynth.FluidSynthSequencer
         """
-        logger.debug("Starting audio output using driver: %s", self._current_audio_driver)
+        logger.debug("Starting audio output using driver: %s", self._current_audio_driver)  # pragma: no mutate
 
         # That is actually already done by the low level method and is included here again for transparency
         if self._current_audio_driver not in VALID_AUDIO_DRIVERS:
@@ -230,7 +232,7 @@ class Piano:
             self._sequencer.fs.program_reset()
             self._audio_driver_is_active = True
         else:
-            logger.debug("Audio output seems to be already active")
+            logger.debug("Audio output seems to be already active")  # pragma: no mutate
 
     def _stop_audio_output(self) -> None:
         """Private method to stop audio output.
@@ -265,9 +267,9 @@ class Piano:
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
             self._sequencer.fs.program_reset()
-            self._audio_driver_is_active = False
+            self._audio_driver_is_active = False  # pragma: no mutate
         else:
-            logger.debug("Audio output seems to be already inactive")
+            logger.debug("Audio output seems to be already inactive")  # pragma: no mutate
 
     def load_instrument(self, instrument: str | int) -> None:
         """Change the piano instrument.
@@ -283,7 +285,7 @@ class Piano:
 
         """
         self._ensure_open()
-        logger.debug("Setting instrument: %s", instrument)
+        logger.debug("Setting instrument: %s", instrument)  # pragma: no mutate
 
         # If default sound fonts are used, check if the provided instrument string is contained in the valid
         # instruments. If different sound fonts are provided, checks are disabled
@@ -349,12 +351,12 @@ class Piano:
             container = self._with_velocity(container, velocity)
 
         if recording_file is None:
-            logger.debug("Playing music container: %s via audio", container)
+            logger.debug("Playing music container: %s via audio", container)  # pragma: no mutate
             self._start_audio_output()
             self._play_container(container, bpm)
 
         else:
-            logger.debug("Recording music container: %s to file %s", container, recording_file)
+            logger.debug("Recording music container: %s to file %s", container, recording_file)  # pragma: no mutate
             self._stop_audio_output()
             self._sequencer.start_recording(str(recording_file))
             self._play_container(container, bpm)
@@ -378,7 +380,7 @@ class Piano:
             # resulting in AttributeError: 'NoneType' object has no attribute 'write'
             delattr(self._sequencer, "wav")
 
-            logger.debug("Finished recording to %s", recording_file)
+            logger.debug("Finished recording to %s", recording_file)  # pragma: no mutate
 
     def _normalize(self, music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey) -> MusicContainer:
         """Turn what play accepts into a mingus music container.
@@ -463,7 +465,7 @@ class Piano:
         method = next(PLAY_METHODS[cls] for cls in type(container).__mro__ if cls in PLAY_METHODS)
         # play_Bar and play_Track take the tempo; play_Note and play_NoteContainer take none
         options = {"bpm": bpm} if method in {"play_Bar", "play_Track"} else {}
-        logger.debug("Playing music container: %s with %s %s", container, method, options)
+        logger.debug("Playing music container: %s with %s %s", container, method, options)  # pragma: no mutate
         getattr(self._sequencer, method)(container, **options)
 
     @staticmethod

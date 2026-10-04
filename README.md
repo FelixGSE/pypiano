@@ -77,6 +77,7 @@ make soundfont-check   # rebuild it and compare byte by byte with the bundled fi
 make lint      # run all pre-commit hooks on all files
 make test      # pytest; make test-all runs every supported Python version
 make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
+make mutation  # mutation testing: changes the code in small ways and fails if no test notices (MUTATION_MIN, default 100)
 make test-integration  # tests with real audio: records notes and runs the README example
 make play      # play a note via audio output (needs a sound device, so not inside the container)
 make record    # record a note to demo.wav
@@ -86,8 +87,10 @@ make record NOTE=A-4 INSTRUMENT="Honky-tonk Piano" OUTPUT=a4.wav RECORD_SECONDS=
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-Please add or update tests with your change: `make lint` must pass, and `make coverage` requires 100% line and branch
-coverage.
+Please add or update tests with your change: `make lint` must pass, `make coverage` requires 100% line and branch
+coverage, and `make mutation` requires every mutant to be caught. A surviving mutant is a code change no test notices;
+its diff shows which test is missing. If a mutant cannot change behavior (an equivalent mutant), mark the line with
+`# pragma: no mutate` and say why.
 
 The bundled sound font is built with `make soundfont` (see [The bundled sound font](#the-bundled-sound-font)); the
 devcontainer has the tool it needs. If you change how it is built, update the checksum in

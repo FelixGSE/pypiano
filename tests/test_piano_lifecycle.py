@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from unittest.mock import MagicMock, call
 
+import numpy as np
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 
@@ -100,7 +101,7 @@ def test_piano_should_raise_piano_closed_error_when_used_after_close(
     # Given a closed piano
     piano.close()
     # When / Then
-    with pytest.raises(errors.PianoClosedError, match="closed") as raised:
+    with pytest.raises(errors.PianoClosedError, match=r"^The piano is closed$") as raised:
         action(piano)
     assert isinstance(raised.value, RuntimeError)
 
@@ -193,3 +194,52 @@ def test_piano_should_raise_playback_option_error_when_velocity_is_out_of_range(
         piano.play("C-4", velocity=velocity)
     assert isinstance(raised.value, ValueError)
     sequencer.play_Note.assert_not_called()
+
+
+# Audio output and recording
+
+
+@pytest.mark.usefixtures("delete_audio_driver", "delete_synth")
+def test_piano_should_start_the_configured_audio_driver_when_playing(sequencer: MagicMock) -> None:
+    # Given a piano configured with the alsa driver
+    piano = Piano(audio_driver="alsa", sequencer=sequencer)
+    # When
+    piano.play("C-4")
+    # Then
+    sequencer.start_audio_output.assert_called_once_with("alsa")
+
+
+def test_piano_should_record_four_seconds_when_no_recording_length_is_given(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a recording without record_seconds
+    # When
+    piano.play("C-4", recording_file="out.wav")
+    # Then
+    sequencer.fs.get_samples.assert_called_once_with(4 * piano_module.WAV_SAMPLE_FREQUENCY)
+
+
+def test_piano_should_write_the_rendered_samples_when_recording(piano: Piano, sequencer: MagicMock) -> None:
+    # Given fluidsynth renders these samples
+    rendered = np.array([1, -1, 2, -2], dtype=np.int16)
+    sequencer.fs.get_samples.return_value = rendered
+    wav = sequencer.wav
+    # When
+    piano.play("C-4", recording_file="out.wav", record_seconds=1)
+    # Then
+    wav.writeframes.assert_called_once_with(rendered.tobytes())
+
+
+def test_piano_should_pass_bpm_when_recording_a_bar(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a bar
+    bar = make_bar("C-4", "E-4")
+    # When
+    piano.play(bar, recording_file="out.wav", record_seconds=1, bpm=90)
+    # Then
+    sequencer.play_Bar.assert_called_once_with(bar, bpm=90)
+
+
+@pytest.mark.parametrize("name", ["bpm", "record_seconds"])
+def test_piano_should_name_the_option_when_a_playback_option_is_invalid(piano: Piano, name: str) -> None:
+    # Given an invalid value for one option
+    # When / Then
+    with pytest.raises(errors.PlaybackOptionError, match=f"^{name} must be a positive finite number. Got 0$"):
+        piano.play("C-4", recording_file="out.wav", **{name: 0})
