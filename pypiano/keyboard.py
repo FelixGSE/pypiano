@@ -5,6 +5,7 @@ from typing import NamedTuple
 
 from mingus.containers import Note
 
+from pypiano.errors import InvalidKeyIndexError, UnknownNoteNameError
 from pypiano.utils import note_to_string
 
 
@@ -226,21 +227,20 @@ class PianoKeyboard:
             PianoKey object if key is an integer or an integer between 0 and 87 if key is a note string.
 
         Raises:
-            IndexError
-               If key is less than zero or greater than 87 or if the note name is not in the set of notes on a piano
-               keyboard.
+            InvalidKeyIndexError: If key is an integer outside 0 to 87 (also an IndexError and a ValueError).
+            UnknownNoteNameError: If key is not the name of a key on the keyboard (also an IndexError).
 
         """
         if isinstance(key, int):
             if not 0 <= key < self.NUMBER_OF_KEYS:
                 msg = f"There are only 88 keys on a piano. key must be an integer between 0 and 87. Got {key}"
-                raise IndexError(msg)
+                raise InvalidKeyIndexError(msg)
             return self._keyboard[key]
         try:
             return self._index_by_name[key]
         except KeyError:
             msg = f"{key} is not a valid note on a piano. Please provide a valid Note between A-0 and C-8/B#-7"
-            raise IndexError(msg) from None
+            raise UnknownNoteNameError(msg) from None
 
     def __iter__(self) -> Iterator[PianoKey]:
         """Define iterating behavior for PianoKeyboard - Yield PianoKeys from left to right."""

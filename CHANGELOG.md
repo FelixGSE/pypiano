@@ -24,6 +24,12 @@ All notable changes to this project are documented in this file. The format is b
 - `make soundfont` downloads the default sound font from Debian and verifies it, for clones where Git LFS cannot
   provide it.
 - `Piano.play()` accepts a key index (0 to 87) and a `PianoKey`.
+- **Exceptions:** `pypiano.PyPianoError` is the base of all errors PyPiano raises on purpose. The subclasses are
+  `SoundFontError`, `AudioDriverError`, `InstrumentError`, `InstrumentTypeError`, `InvalidNoteError`,
+  `UnknownNoteNameError`, `InvalidKeyIndexError` and `UnsupportedContainerError`. Each also derives from the built-in
+  exception raised before (`ValueError`, `TypeError`, `IndexError` or `RuntimeError`), so existing `except` clauses
+  keep working. An out-of-range key index raises `InvalidKeyIndexError` from both `Piano.play()` and
+  `PianoKeyboard[...]`, which is both a `ValueError` and an `IndexError`. Before, the two raised different exceptions.
 
 ### Fixed
 
