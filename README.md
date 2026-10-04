@@ -61,10 +61,14 @@ octave numbers go up at C, so middle C is `C-4` and A-4 is 440 Hz. Every key can
 for example `C#-4` or `Db-4`. The octave boundary applies to enharmonic names too: `B#-3` is the same key as `C-4`, and
 `Cb-5` is the same key as `B-4`.
 
-Importing `pypiano` has two process-wide side effects: it loads the FluidSynth library through mingus (on macOS it
-also looks in Homebrew's lib directory), and it patches two functions of `mingus.midi.pyfluidsynth` so recording works
-with numpy 2.3 or newer. Other code in the same process that uses mingus' fluidsynth bindings gets the patched
-functions too.
+Importing `pypiano` changes mingus' fluidsynth bindings (`mingus.midi.pyfluidsynth`) for the whole process:
+
+- It loads the FluidSynth library through mingus; on macOS it also looks in Homebrew's lib directory.
+- It replaces two functions, so recording works with numpy 2.3 or newer.
+- It replaces `Synth.start`, which only accepted FluidSynth 1's audio drivers, with a version that accepts every driver.
+- It adds the `Synth` methods `audio_drivers` and `set_channel_type`.
+
+Other code in the same process that uses mingus' fluidsynth bindings gets these changes too.
 
 ## Development
 
@@ -79,6 +83,7 @@ make test      # pytest; make test-all runs every supported Python version
 make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
 make mutation  # mutation testing: changes the code in small ways and fails if no test notices (MUTATION_MIN, default 100)
 make test-integration  # tests with real audio: records notes and runs the README example
+make test-lowest       # all tests with the oldest dependency versions pyproject.toml allows, on Python 3.11
 make play      # play a note via audio output (needs a sound device, so not inside the container)
 make record    # record a note to demo.wav
 make record NOTE=A-4 INSTRUMENT="Honky-tonk Piano" OUTPUT=a4.wav RECORD_SECONDS=3
@@ -152,4 +157,5 @@ PyPiano builds on [mingus](https://github.com/bspaans/python-mingus), which is l
 Releases up to and including 0.1.2 were published under the MIT license.
 
 The bundled sound font, a subset of FluidR3_GM, is distributed under the MIT license, see
-[licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt).
+[licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt). The package metadata therefore declares the
+license expression `GPL-3.0-or-later AND MIT`.

@@ -28,7 +28,8 @@ def script(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> ModuleType:
     run.side_effect = lambda args, **_: subprocess.CompletedProcess(
         args,
         0,
-        stdout="    a.x_f__mutmut_1: killed\n    a.x_f__mutmut_2: survived\n    a.x_f__mutmut_3: no tests\n"
+        stdout="    a.x_f__mutmut_1: timeout\n    a.x_f__mutmut_2: survived\n    a.x_f__mutmut_3: no tests\n"
+        "    a.x_f__mutmut_4: not checked\n    a.x_f__mutmut_5: skipped\n    a.x_f__mutmut_6: caught by type check\n"
         if args[1] == "results"
         else f"diff of {args[2]}",
     )
@@ -43,14 +44,36 @@ def write_stats(script: ModuleType, **stats: int) -> None:
 @pytest.mark.parametrize(
     ("stats", "expected"),
     [
-        ({"killed": 9, "survived": 1}, (90.0, 9, 10)),
-        ({"killed": 6, "segfault": 1, "timeout": 1, "survived": 1, "no_tests": 1}, (80.0, 8, 10)),
-        ({"killed": 4, "skipped": 3}, (100.0, 4, 4)),
-        ({}, (100.0, 0, 0)),
+        ({"killed": 9, "survived": 1, "total": 10}, (90.0, 9, 10)),
+        (
+            {
+                "killed": 5,
+                "segfault": 1,
+                "timeout": 1,
+                "caught_by_type_check": 1,
+                "suspicious": 1,
+                "no_tests": 1,
+                "total": 10,
+            },
+            (80.0, 8, 10),
+        ),
+        ({"killed": 4, "skipped": 3, "total": 7}, (100.0, 4, 4)),
+        ({"killed": 2, "not_checked": 6, "check_was_interrupted_by_user": 2, "total": 10}, (20.0, 2, 10)),
+        ({"killed": 2}, (0.0, 2, 0)),
+        ({"skipped": 3, "total": 3}, (0.0, 0, 0)),
+        ({}, (0.0, 0, 0)),
     ],
-    ids=["killed and survived", "crashes and hangs count as caught", "skipped is not tested", "nothing tested"],
+    ids=[
+        "killed and survived",
+        "crashes, hangs and type check rejections count as caught",
+        "skipped mutants are not counted",
+        "unchecked mutants count against the score",
+        "no total",
+        "only skipped mutants",
+        "nothing counted",
+    ],
 )
-def test_mutation_score_should_count_killed_crashed_and_hung_mutants_as_caught_when_given_stats(
+def test_mutation_score_should_count_caught_mutants_among_all_but_skipped_ones_when_given_stats(
     script: ModuleType, stats: dict[str, int], expected: tuple[float, int, int]
 ) -> None:
     # Given mutmut's statistics
@@ -64,7 +87,7 @@ def test_main_should_pass_when_score_reaches_the_minimum(
     script: ModuleType, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # Given a run where every mutant was caught
-    write_stats(script, killed=10)
+    write_stats(script, killed=10, total=10)
     # When
     exit_code = script.main(["--min", "100"])
     # Then
@@ -76,13 +99,31 @@ def test_main_should_fail_and_show_the_uncaught_mutants_when_score_is_below_the_
     script: ModuleType, capsys: pytest.CaptureFixture[str]
 ) -> None:
     # Given a run with mutants that no test caught
-    write_stats(script, killed=8, survived=1, no_tests=1)
+    write_stats(script, killed=7, timeout=1, survived=1, no_tests=1, not_checked=1, skipped=1, total=12)
     # When
     exit_code = script.main(["--min", "95"])
-    # Then
+    # Then the mutants not caught are shown, but not the caught or skipped ones
     out = capsys.readouterr().out
     assert exit_code == 1
-    assert "Mutation score: 80.0% (8 of 10 mutants caught), minimum 95%" in out
+    assert "Mutation score: 72.7% (8 of 11 mutants caught), minimum 95%" in out
     assert "Not caught: a.x_f__mutmut_2\ndiff of a.x_f__mutmut_2" in out
     assert "Not caught: a.x_f__mutmut_3\ndiff of a.x_f__mutmut_3" in out
-    assert "a.x_f__mutmut_1" not in out
+    assert "Not caught: a.x_f__mutmut_4\ndiff of a.x_f__mutmut_4" in out
+    for caught_or_skipped in ("a.x_f__mutmut_1", "a.x_f__mutmut_5", "a.x_f__mutmut_6"):
+        assert caught_or_skipped not in out
+
+
+@pytest.mark.parametrize("minimum", ["100", "0"])
+def test_main_should_fail_when_no_mutant_was_counted(
+    script: ModuleType, capsys: pytest.CaptureFixture[str], minimum: str
+) -> None:
+    # Given a run without mutants to count, whatever the minimum
+    write_stats(script, skipped=2, total=2)
+    # When
+    exit_code = script.main(["--min", minimum])
+    # Then
+    assert exit_code == 1
+    assert capsys.readouterr().out == (
+        f"Mutation score: 0.0% (0 of 0 mutants caught), minimum {minimum}%\n"
+        "No mutants to count, so the run checked nothing; see mutmut's output above.\n"
+    )

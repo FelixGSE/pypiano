@@ -68,6 +68,26 @@ jobs:
           UV_PYTHON_PREFERENCE: only-managed
         run: make coverage
 
+  lowest:
+    name: Lowest dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install fluidsynth
+        # mingus loads libfluidsynth when it is imported
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libfluidsynth3
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Run all tests with the oldest allowed dependencies on the oldest Python
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        # Keeps the minimum versions in pyproject.toml true; installs into a throwaway venv, not from uv.lock
+        run: make test-lowest
+
   integration:
     name: Integration (real audio)
     runs-on: ubuntu-latest
