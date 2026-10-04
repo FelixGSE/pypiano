@@ -142,7 +142,7 @@ def test_piano_should_not_pass_bpm_when_playing_notes(
 def test_piano_should_raise_playback_option_error_when_bpm_is_not_positive(piano: Piano, bpm: float) -> None:
     # Given a non-positive tempo
     # When / Then
-    with pytest.raises(errors.PlaybackOptionError, match="bpm must be positive") as raised:
+    with pytest.raises(errors.PlaybackOptionError, match="bpm must be a positive finite number") as raised:
         piano.play("C-4", bpm=bpm)
     assert isinstance(raised.value, ValueError)
 
@@ -189,7 +189,7 @@ def test_piano_should_raise_playback_option_error_when_velocity_is_out_of_range(
 ) -> None:
     # Given a velocity outside 0 to 127
     # When / Then
-    with pytest.raises(errors.PlaybackOptionError, match="velocity must be between 0 and 127") as raised:
+    with pytest.raises(errors.PlaybackOptionError, match="velocity must be an integer between 0 and 127") as raised:
         piano.play("C-4", velocity=velocity)
     assert isinstance(raised.value, ValueError)
     sequencer.play_Note.assert_not_called()
