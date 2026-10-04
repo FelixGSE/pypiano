@@ -284,3 +284,15 @@ def test_piano_should_sleep_when_paused(monkeypatch: pytest.MonkeyPatch) -> None
     Piano.pause(2)
     # Then
     sleep.assert_called_once_with(2)
+
+
+def test_piano_should_record_to_path_when_recording_file_is_a_path(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path
+) -> None:
+    # Given a recording file as a pathlib.Path
+    recording_file = tmp_path / "c4.wav"
+    # When
+    piano.play("C-4", recording_file=recording_file, record_seconds=0.5)
+    # Then
+    sequencer.start_recording.assert_called_once_with(str(recording_file))
+    sequencer.fs.get_samples.assert_called_once_with(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY))

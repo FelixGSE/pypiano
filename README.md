@@ -59,6 +59,11 @@ octave numbers go up at C, so middle C is `C-4` and A-4 is 440 Hz. Every key can
 for example `C#-4` or `Db-4`. The octave boundary applies to enharmonic names too: `B#-3` is the same key as `C-4`, and
 `Cb-5` is the same key as `B-4`.
 
+Importing `pypiano` has two process-wide side effects: it loads the FluidSynth library through mingus (on macOS it
+also looks in Homebrew's lib directory), and it patches two functions of `mingus.midi.pyfluidsynth` so recording works
+with numpy 2.3 or newer. Other code in the same process that uses mingus' fluidsynth bindings gets the patched
+functions too.
+
 ## Development
 
 The devcontainer (`.devcontainer/`) has everything installed. Common commands go through `make`:
@@ -101,7 +106,7 @@ as published by the Free Software Foundation, either version 3 of the License, o
 See [LICENSE](LICENSE). Copyright (C) 2021-2026 FelixGSE.
 
 PyPiano builds on [mingus](https://github.com/bspaans/python-mingus), which is licensed under GPL-3.0-or-later as well.
-Releases up to and including 0.1.0 were published under the MIT license.
+Releases up to and including 0.1.2 were published under the MIT license.
 
 The bundled default sound font is distributed under the MIT license, see
 [licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt).

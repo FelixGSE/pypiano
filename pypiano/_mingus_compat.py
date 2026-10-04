@@ -4,6 +4,9 @@ mingus.midi.pyfluidsynth still uses numpy.fromstring in binary mode and ndarray.
 The replacements below are the same functions using numpy.frombuffer and ndarray.tobytes. All callers in mingus look
 these functions up on the module at call time, so replacing the module attributes is sufficient.
 
+The patch is process-wide: any other code using mingus.midi.pyfluidsynth in the same process gets these functions too.
+They behave the same as mingus' originals, apart from working with current numpy.
+
 They are adapted from mingus.midi.pyfluidsynth (pyFluidSynth, Copyright 2008-2009 Nathan Whitehead, released under the
 LGPL), which PyPiano uses under the terms of the GPL.
 """
