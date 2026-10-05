@@ -18,7 +18,7 @@ from pypiano.errors import (
     UnparsableNoteError,
     UnsupportedContainerError,
 )
-from pypiano.keyboard import KeyColor, NoteIdentity, PianoKey, PianoKeyboard
+from pypiano.keyboard import KeyColor, PianoKey, PianoKeyboard
 from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, AudioDriver, Instrument, Piano
 
 __version__ = version("pypiano")
@@ -34,7 +34,6 @@ __all__ = [
     "InvalidKeyIndexError",
     "InvalidNoteError",
     "KeyColor",
-    "NoteIdentity",
     "Piano",
     "PianoClosedError",
     "PianoKey",

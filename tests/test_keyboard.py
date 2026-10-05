@@ -1,7 +1,10 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 from mingus.containers import Note
 
-from pypiano.keyboard import KeyColor, NoteIdentity, PianoKey, PianoKeyboard
+from pypiano.errors import InvalidKeyIndexError
+from pypiano.keyboard import KeyColor, PianoKey, PianoKeyboard
 
 
 @pytest.fixture
@@ -11,62 +14,41 @@ def keyboard() -> PianoKeyboard:
 
 @pytest.fixture
 def c4() -> PianoKey:
-    return PianoKey("C", "B#", 4, "white", key_index=39, second_octave=3)
+    return PianoKey(39)
 
 
 # PianoKey
 
 
-def test_piano_key_should_combine_both_identities_when_asked_for_full_note_string(c4: PianoKey) -> None:
-    # Given a C-4 key
-    # When
-    full_note_string = c4.full_note_string
-    # Then
-    assert full_note_string == "C-4/B#-3"
-
-
-def test_piano_key_should_return_first_note_string_when_indexed_with_zero(c4: PianoKey) -> None:
-    # Given a C-4 key
-    # When
-    note_string = c4[0]
-    # Then
-    assert note_string == "C-4"
-
-
-def test_piano_key_should_return_second_note_string_when_indexed_with_one(c4: PianoKey) -> None:
-    # Given a C-4 key
-    # When
-    note_string = c4[1]
-    # Then
-    assert note_string == c4.second_note_string == "B#-3"
-
-
-def test_piano_key_should_default_second_octave_to_octave_when_not_given() -> None:
-    # Given a C#-4 key created without a second octave
-    key = PianoKey("C#", "Db", 4, "black")
-    # When
-    note_string = key.second_note_string
-    # Then
-    assert note_string == "Db-4"
-
-
-@pytest.mark.parametrize(("color", "expected"), [("white", KeyColor.WHITE), (KeyColor.BLACK, KeyColor.BLACK)])
-def test_piano_key_should_store_a_key_color_when_given_a_color_or_its_name(
-    color: KeyColor | str, expected: KeyColor
+@pytest.mark.parametrize(
+    ("key_index", "names"),
+    [
+        (0, ("A", "A", 0, "A-0/A-0")),
+        (39, ("C", "B#", 4, "C-4/B#-3")),
+        (40, ("C#", "Db", 4, "C#-4/Db-4")),
+        (43, ("E", "Fb", 4, "E-4/Fb-4")),
+        (44, ("F", "E#", 4, "F-4/E#-4")),
+        (50, ("B", "Cb", 4, "B-4/Cb-5")),
+        (87, ("C", "B#", 8, "C-8/B#-7")),
+    ],
+    ids=["A-0", "C-4", "C#-4", "E-4", "F-4", "B-4", "C-8"],
+)
+def test_piano_key_should_derive_its_names_and_octave_from_its_position(
+    key_index: int, names: tuple[str, str, int, str]
 ) -> None:
-    # Given a color as an enum member or as the plain string it equals
+    # Given a key by its position; octave numbers go up at C, so only B# and Cb are in another octave than the key
+    key = PianoKey(key_index)
     # When
-    key = PianoKey("C", "B#", 4, color)
+    derived = (key.first_identity, key.second_identity, key.octave, key.full_note_string)
     # Then
-    assert key.key_color is expected
-    assert key.key_color == expected.value
+    assert derived == names
 
 
-def test_piano_key_should_raise_index_error_when_indexed_beyond_its_two_identities(c4: PianoKey) -> None:
-    # Given a C-4 key
+@pytest.mark.parametrize(("key_index", "color"), [(39, KeyColor.WHITE), (40, KeyColor.BLACK), (49, KeyColor.BLACK)])
+def test_piano_key_should_be_black_exactly_when_its_first_name_is_sharp(key_index: int, color: KeyColor) -> None:
+    # Given C-4, C#-4 and A#-4
     # When / Then
-    with pytest.raises(IndexError, match=r"^Out of range\. PianoKey has only two indices$"):
-        c4[2]
+    assert PianoKey(key_index).key_color is color
 
 
 @pytest.mark.parametrize(("note_string", "expected"), [("C-4", True), ("B#-3", True), ("B#-4", False), ("D-4", False)])
@@ -80,13 +62,6 @@ def test_piano_key_should_report_membership_when_checked_for_note_string(
     assert is_contained is expected
 
 
-def test_piano_key_should_raise_value_error_when_color_is_neither_black_nor_white() -> None:
-    # Given an invalid key color
-    # When / Then
-    with pytest.raises(ValueError, match="white or black"):
-        PianoKey("C", "B#", 4, "red")
-
-
 def test_piano_key_should_return_mingus_notes_when_asked_for_identities(c4: PianoKey) -> None:
     # Given a C-4 key
     # When
@@ -98,51 +73,49 @@ def test_piano_key_should_return_mingus_notes_when_asked_for_identities(c4: Pian
 
 def test_piano_key_should_return_concert_pitch_when_key_is_a4() -> None:
     # Given the A-4 key
-    a4 = PianoKey("A", "A", 4, "white")
+    a4 = PianoKey(48)
     # When
     frequency = a4.frequency
     # Then
     assert frequency == pytest.approx(440.0)
 
 
-@pytest.mark.parametrize(("identity", "expected"), [("first", ("C", 4)), ("second", ("B#", 3))])
-def test_piano_key_should_return_note_when_identity_is_valid(
-    c4: PianoKey, identity: NoteIdentity, expected: tuple[str, int]
-) -> None:
-    # Given a C-4 key
-    # When
-    note = c4.get_as_note(identity)
-    # Then
-    assert (note.name, note.octave) == expected
-
-
-@pytest.mark.parametrize(("identity", "expected"), [("first", "C-4"), ("second", "B#-3")])
-def test_piano_key_should_return_note_string_when_identity_is_valid(
-    c4: PianoKey, identity: NoteIdentity, expected: str
-) -> None:
-    # Given a C-4 key
-    # When
-    note_string = c4.get_as_string(identity)
-    # Then
-    assert note_string == expected
-
-
-@pytest.mark.parametrize("method", ["get_as_note", "get_as_string"])
-def test_piano_key_should_raise_value_error_when_identity_is_invalid(c4: PianoKey, method: str) -> None:
+def test_piano_key_should_show_its_position_when_represented(c4: PianoKey) -> None:
     # Given a C-4 key
     # When / Then
-    with pytest.raises(ValueError, match="Must be 'first' or 'second'"):
-        getattr(c4, method)("third")
+    assert repr(c4) == "PianoKey(key_index=39)"
 
 
-def test_piano_key_should_show_all_attributes_when_represented(c4: PianoKey) -> None:
+def test_piano_key_should_equal_hash_and_sort_by_position_when_compared(c4: PianoKey) -> None:
+    # Given C-4, another C-4 and C#-4
+    same, c_sharp = PianoKey(39), PianoKey(40)
+    # When / Then
+    assert same == c4
+    assert hash(same) == hash(c4)
+    assert len({same, c4}) == 1
+    assert c_sharp != c4
+    assert sorted([c_sharp, c4]) == [c4, c_sharp]
+
+
+@pytest.mark.parametrize("attribute", ["key_index", "octave"])
+def test_piano_key_should_raise_frozen_instance_error_when_an_attribute_is_assigned(
+    c4: PianoKey, attribute: str
+) -> None:
     # Given a C-4 key
-    # When
-    representation = repr(c4)
-    # Then
-    assert representation == (
-        "PianoKey(first_identity=C,second_identity=B#,octave=4,second_octave=3,key_color=white,key_index=39)"
-    )
+    # When / Then
+    with pytest.raises(FrozenInstanceError):
+        setattr(c4, attribute, 40)
+    assert c4.key_index == 39
+
+
+@pytest.mark.parametrize("key_index", [-1, 88])
+def test_piano_key_should_raise_invalid_key_index_error_when_not_one_of_the_88(key_index: int) -> None:
+    # Given a position left of A-0 or right of C-8
+    # When / Then
+    with pytest.raises(
+        InvalidKeyIndexError, match=rf"^A piano has 88 keys, so a key index is between 0 and 87\. Got {key_index}$"
+    ):
+        PianoKey(key_index)
 
 
 # PianoKeyboard
@@ -295,12 +268,3 @@ def test_keyboard_should_return_a_copy_when_asked_for_distinct_key_names(keyboar
     # Then the keyboard still knows all names
     assert "C-4" in keyboard
     assert len(keyboard.distinct_key_names) == 154
-
-
-def test_piano_key_should_return_first_identity_when_no_identity_is_given(c4: PianoKey) -> None:
-    # Given a C-4 key
-    # When
-    note, note_string = c4.get_as_note(), c4.get_as_string()
-    # Then
-    assert (note.name, note.octave) == ("C", 4)
-    assert note_string == "C-4"

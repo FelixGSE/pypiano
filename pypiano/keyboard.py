@@ -1,8 +1,8 @@
 """Model of an 88 key piano keyboard."""
 
 from collections.abc import Iterator
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal, NamedTuple, TypeAlias
 
 from mingus.containers import Note
 
@@ -17,186 +17,118 @@ class KeyColor(StrEnum):
     BLACK = "black"
 
 
-# Which of a key's two note names to use: C-4's first identity is C-4, its second B#-3
-NoteIdentity: TypeAlias = Literal["first", "second"]
-
-
-class BaseKey(NamedTuple):
-    """Note identities and color of a key within one octave.
-
-    The second identity of C (B#) belongs to the octave below and the one of B (Cb) to the octave above, which
-    second_octave_offset expresses: C-4 is B#-3 and B-4 is Cb-5.
-    """
-
-    first: str
-    second: str
-    color: KeyColor
-    second_octave_offset: int = 0
-
-
-BASE_PIANO_OCTAVE_PATTERN = (
-    BaseKey("C", "B#", KeyColor.WHITE, second_octave_offset=-1),
-    BaseKey("C#", "Db", KeyColor.BLACK),
-    BaseKey("D", "D", KeyColor.WHITE),
-    BaseKey("D#", "Eb", KeyColor.BLACK),
-    BaseKey("E", "Fb", KeyColor.WHITE),
-    BaseKey("F", "E#", KeyColor.WHITE),
-    BaseKey("F#", "Gb", KeyColor.BLACK),
-    BaseKey("G", "G", KeyColor.WHITE),
-    BaseKey("G#", "Ab", KeyColor.BLACK),
-    BaseKey("A", "A", KeyColor.WHITE),
-    BaseKey("A#", "Bb", KeyColor.BLACK),
-    BaseKey("B", "Cb", KeyColor.WHITE, second_octave_offset=1),
+# The twelve keys of an octave from C, by both of their names. Octave numbers go up at C, so the second names of C and
+# B belong to the neighboring octaves: C-4 is also B#-3, and B-4 is also Cb-5
+_OCTAVE = (
+    ("C", "B#"),
+    ("C#", "Db"),
+    ("D", "D"),
+    ("D#", "Eb"),
+    ("E", "Fb"),
+    ("F", "E#"),
+    ("F#", "Gb"),
+    ("G", "G"),
+    ("G#", "Ab"),
+    ("A", "A"),
+    ("A#", "Bb"),
+    ("B", "Cb"),
 )
 
 
+@dataclass(frozen=True, order=True)
 class PianoKey:
-    """Class representing a single key on an 88 key piano keyboard.
+    """A key of an 88 key piano, by its position from left to right: 0 is A-0, 39 is C-4 and 87 is C-8.
 
-    Note names follow scientific pitch notation: octave numbers go up at C. A key's two identities are the same pitch,
-    so the second identity of C-4 is B#-3 and the one of B-4 is Cb-5.
+    Everything else about the key follows from its position. Keys are immutable, equal when their positions are, and
+    sort from left to right. Note names follow scientific pitch notation, in which octave numbers go up at C.
 
     Attributes:
-        first_identity: The first note identity of a given piano key
-        second_identity: The second note identity of a given piano key
-        octave: An integer indicating the octave number of a given piano key
-        key_color: The color of the key - Can be either black or white
-        key_index: The key index on where to find a given piano key on a piano keyboard from left to right
-        second_octave: The octave of the second identity. Defaults to octave; differs for C (B# of the octave below)
-            and B (Cb of the octave above)
+        key_index: The position of the key, from 0 (A-0) to 87 (C-8)
 
     """
 
-    def __init__(  # noqa: PLR0913 - one argument per key attribute
-        self,
-        first_identity: str,
-        second_identity: str,
-        octave: int,
-        key_color: KeyColor | str,
-        key_index: int | None = None,
-        *,
-        second_octave: int | None = None,
-    ) -> None:
-        """Create a piano key from its note identities, octave, color and position."""
-        self.first_identity = first_identity
-        self.second_identity = second_identity
-        self.octave = octave
-        self.second_octave = octave if second_octave is None else second_octave
-        self.key_color = key_color
-        self.key_index = key_index
+    key_index: int
 
-    def __repr__(self) -> str:
-        """Return a string with all attributes of the piano key."""
-        return (
-            f"{self.__class__.__name__}(first_identity={self.first_identity},second_identity={self.second_identity},"
-            f"octave={self.octave},second_octave={self.second_octave},key_color={self.key_color},"
-            f"key_index={self.key_index})"
-        )
+    def __post_init__(self) -> None:
+        """Check that the key is one of the 88.
 
-    def __getitem__(self, key: int) -> str:
-        """Return the first or second note string of the PianoKey for index 0 or 1."""
-        if key == 0:
-            return self.first_note_string
-        if key == 1:
-            return self.second_note_string
-        msg = "Out of range. PianoKey has only two indices"
-        raise IndexError(msg)
+        Raises:
+            InvalidKeyIndexError: If key_index is outside 0 to 87 (also an IndexError and a ValueError)
+
+        """
+        if not 0 <= self.key_index < PianoKeyboard.NUMBER_OF_KEYS:
+            msg = f"A piano has 88 keys, so a key index is between 0 and 87. Got {self.key_index}"
+            raise InvalidKeyIndexError(msg)
 
     def __contains__(self, item: str) -> bool:
-        """Check if a note string is exactly one of the two note identities of the PianoKey."""
+        """Whether a note string is exactly one of the key's two names, such as "C-4" or "B#-3" for C-4."""
         return item in (self.first_note_string, self.second_note_string)
 
     @property
+    def octave(self) -> int:
+        """The octave of the first name, from 0 to 8."""
+        return self._pitch // 12
+
+    @property
+    def first_identity(self) -> str:
+        """The first name without octave, such as "C" or "C#"."""
+        return _OCTAVE[self._pitch % 12][0]
+
+    @property
+    def second_identity(self) -> str:
+        """The second name without octave, such as "B#" or "Db". D, G and A have only one name, so it is the first."""
+        return _OCTAVE[self._pitch % 12][1]
+
+    @property
+    def second_octave(self) -> int:
+        """The octave of the second name: one lower for B#, one higher for Cb, and else the key's own."""
+        match self.second_identity:
+            case "B#":
+                return self.octave - 1
+            case "Cb":
+                return self.octave + 1
+            case _:
+                return self.octave
+
+    @property
     def key_color(self) -> KeyColor:
-        """Get key color of a given PianoKey object."""
-        return self._key_color
-
-    @key_color.setter
-    def key_color(self, color: KeyColor | str) -> None:
-        """Set key color of a given PianoKey object."""
-        try:
-            self._key_color = KeyColor(color)
-        except ValueError:
-            msg = "Key color can only be white or black"
-            raise ValueError(msg) from None
-
-    @property
-    def key_index(self) -> int | None:
-        """Get key index of a given PianoKey object."""
-        return self._key_index
-
-    @key_index.setter
-    def key_index(self, key_index: int | None) -> None:
-        """Set key index of a given PianoKey object."""
-        self._key_index = key_index
-
-    @property
-    def full_note_string(self) -> str:
-        """Get both PianoKey note identities as a combined string."""
-        return f"{self.first_note_string}/{self.second_note_string}"
+        """Black for the keys whose first name has a sharp, white for the others."""
+        return KeyColor.BLACK if "#" in self.first_identity else KeyColor.WHITE
 
     @property
     def first_note_string(self) -> str:
-        """Get the first identity of a given piano key as a note string."""
+        """The first name with its octave, such as "C-4"."""
         return f"{self.first_identity}-{self.octave}"
 
     @property
     def second_note_string(self) -> str:
-        """Get the second identity of a given piano key as a note string."""
+        """The second name with its octave, such as "B#-3"."""
         return f"{self.second_identity}-{self.second_octave}"
 
     @property
+    def full_note_string(self) -> str:
+        """Both names with their octaves, such as "C-4/B#-3"."""
+        return f"{self.first_note_string}/{self.second_note_string}"
+
+    @property
     def first_note(self) -> Note:
-        """Get the first identity of the piano key as a mingus.containers.Note."""
+        """The first name as a mingus Note."""
         return Note(self.first_note_string)
 
     @property
     def second_note(self) -> Note:
-        """Get the second identity of the piano key as a mingus.containers.Note."""
+        """The second name as a mingus Note."""
         return Note(self.second_note_string)
 
     @property
     def frequency(self) -> float:
-        """Get frequency of a given PianoKey. See docstring of mingus.containers.Note.to_hertz for more details."""
+        """The key's pitch in hertz, 440 for A-4."""
         return self.first_note.to_hertz()
 
-    def get_as_note(self, identity: NoteIdentity = "first") -> Note:
-        """Get first or second PianoKey identity as a mingus.containers.Note.
-
-        Args:
-            identity: Parameter indicating whether first or second PianoKey identity should be fetched. Must be either
-                'first' or 'second'
-        Returns:
-            A mingus.containers.Note object with first or second note identity
-        Raises:
-            ValueError: If identity is not 'first' or 'second'
-
-        """
-        if identity == "first":
-            return self.first_note
-        if identity == "second":
-            return self.second_note
-        msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
-        raise ValueError(msg)
-
-    def get_as_string(self, identity: NoteIdentity = "first") -> str:
-        """Get first or second PianoKey identity as a note string.
-
-        Args:
-            identity: Parameter indicating whether first or second PianoKey identity should be fetched. Must be either
-                'first' or 'second'
-        Returns:
-            A string representing a note following the pattern: <NOTE_NAME><ACCIDENTAL>-<OCTAVE>
-        Raises:
-            ValueError: If identity is not 'first' or 'second'
-
-        """
-        if identity == "first":
-            return self.first_note_string
-        if identity == "second":
-            return self.second_note_string
-        msg = f"Invalid identity parameter - Must be 'first' or 'second'. Got {identity}"
-        raise ValueError(msg)
+    @property
+    def _pitch(self) -> int:
+        """Semitones above C-0, as mingus counts them: A-0, the lowest key, is 9."""
+        return self.key_index + 9
 
 
 class PianoKeyboard:
@@ -208,7 +140,7 @@ class PianoKeyboard:
 
     def __init__(self) -> None:
         """Create the 88 keys from A-0 to C-8."""
-        self._keyboard = PianoKeyboard._create_keyboard_dict()
+        self._keyboard = {index: PianoKey(index) for index in range(self.NUMBER_OF_KEYS)}
         # Both note names of every key, for exact lookups; each name belongs to exactly one key
         self._index_by_name = {
             name: index
@@ -277,34 +209,6 @@ class PianoKeyboard:
     def __len__(self) -> int:
         """Define the len of the keyboard as the number of keys."""
         return len(self._keyboard)
-
-    @staticmethod
-    def _create_keyboard_dict() -> dict[int, PianoKey]:
-        """Generate the piano dictionary.
-
-        Method generates a piano dictionary with key_index from left to right as its key and a corresponding
-        PianoKey object as Value
-        """
-        raw_piano_keyboard = []
-        # Octaves 0 to 9; the keys outside the 88 are sliced away below, so more octaves change nothing
-        for idx in range(10):  # pragma: no mutate
-            for jdx in range(12):
-                tmp_base_key = BASE_PIANO_OCTAVE_PATTERN[jdx]
-                current_key = PianoKey(
-                    tmp_base_key.first,
-                    tmp_base_key.second,
-                    idx,
-                    tmp_base_key.color,
-                    second_octave=idx + tmp_base_key.second_octave_offset,
-                )
-                raw_piano_keyboard.append(current_key)
-
-        kb = {}
-        for index, key in enumerate(raw_piano_keyboard[9:97]):
-            key.key_index = index
-            kb.update({index: key})
-
-        return kb
 
     @property
     def distinct_key_names(self) -> set[str]:

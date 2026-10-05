@@ -10,7 +10,7 @@ from hypothesis import strategies as st
 from mingus.containers import Bar, Note, Track
 
 from pypiano.errors import InvalidKeyIndexError, InvalidNoteError, PlaybackOptionError, UnknownNoteNameError
-from pypiano.keyboard import PianoKey, PianoKeyboard
+from pypiano.keyboard import KeyColor, PianoKey, PianoKeyboard
 from pypiano.piano import Piano
 from pypiano.utils import note_name, notes_in
 
@@ -93,6 +93,18 @@ def test_keyboard_should_return_a_key_or_raise_invalid_key_index_error_when_give
     else:
         with pytest.raises(InvalidKeyIndexError):
             KEYBOARD[index]
+
+
+@given(st.integers(min_value=0, max_value=87))
+def test_piano_key_should_name_the_pitch_of_its_position_when_created_by_index(index: int) -> None:
+    # Given any position on the keyboard
+    # When
+    key = PianoKey(index)
+    # Then both of its names are the pitch index semitones above A-0, it is the keyboard's key there, and it is black
+    # exactly when it has a sharp
+    assert int(key.first_note) == int(key.second_note) == LOWEST + index
+    assert key == key_at(index)
+    assert (key.key_color == KeyColor.BLACK) == ("#" in key.first_note_string)
 
 
 # notes_in

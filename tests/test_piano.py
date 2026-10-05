@@ -351,7 +351,7 @@ def test_piano_should_play_container_via_audio_when_no_recording_file_is_given(
 
 @pytest.mark.parametrize(
     ("music_container", "expected_note"),
-    [(39, "C-4"), (0, "A-0"), (87, "C-8"), (PianoKey("C", "B#", 4, "white", second_octave=3), "C-4")],
+    [(39, "C-4"), (0, "A-0"), (87, "C-8"), (PianoKey(39), "C-4")],
     ids=["key index C-4", "first key index", "last key index", "piano key"],
 )
 def test_piano_should_play_first_identity_when_given_key_index_or_piano_key(
@@ -412,17 +412,6 @@ def test_piano_should_raise_value_error_when_key_index_is_out_of_range(
     # When / Then
     with pytest.raises(ValueError, match="Key index must be between 0 and 87"):
         piano.play(key_index)
-    sequencer.play_Note.assert_not_called()
-
-
-def test_piano_should_raise_value_error_when_piano_key_is_not_on_the_keyboard(
-    piano: Piano, sequencer: MagicMock
-) -> None:
-    # Given a key above C-8
-    key = PianoKey("D", "D", 8, "white")
-    # When / Then
-    with pytest.raises(ValueError, match="not on a piano with 88 keys"):
-        piano.play(key)
     sequencer.play_Note.assert_not_called()
 
 
