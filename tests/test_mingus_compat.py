@@ -104,6 +104,10 @@ def test_start_should_set_the_driver_and_create_it_when_called(
     assert synth.audio_driver is fluidsynth.new_driver.return_value
 
 
+# Starts a real audio driver. It is also an integration test so that mutation testing, which runs only unit tests, never
+# runs it: mutants that pass NULL to FluidSynth make it abort the process, which mutmut counts as "suspicious", not as
+# caught. mutmut runs a mutant's tests in a random order, so the mocked test above could not reliably catch them first.
+@pytest.mark.integration
 def test_start_should_start_a_driver_outside_mingus_list_when_fluidsynth_has_it(tmp_path: Path) -> None:
     # Given a real FluidSynth synthesizer whose file driver writes to a temporary file; mingus only knows FluidSynth 1's
     # drivers, which don't include it

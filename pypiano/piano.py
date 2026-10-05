@@ -104,7 +104,9 @@ MAX_FADE_SECONDS = 5
 MAX_VELOCITY = 127
 DEFAULT_BPM = 120
 
-# The mingus containers Piano.play turns its input into, and the sequencer method that plays each of them
+# What Piano.play and Piano.record take, the mingus containers they turn it into, and the sequencer method that plays
+# each of them
+MusicInput: TypeAlias = str | int | Note | NoteContainer | Bar | Track | PianoKey
 MusicContainer: TypeAlias = Note | NoteContainer | Bar | Track
 PLAY_METHODS: dict[type, str] = {
     Note: "play_Note",
@@ -171,7 +173,7 @@ class Piano:
         # Without load_sound_fonts' re-selection of the instrument, which is selected below
         self._load_sound_fonts(sound_fonts_path)
 
-        # Audio output is lazily loaded when self.play method is called the first time without recording
+        # Audio output starts lazily, the first time play is called
         self._current_audio_driver = audio_driver
         # Set a variable to track if audio output is currently active
         self._audio_driver_is_active = False  # pragma: no mutate
@@ -198,7 +200,7 @@ class Piano:
     def close(self) -> None:
         """Stop audio output and release FluidSynth's synthesizer. Calling it again does nothing.
 
-        After closing, play, load_sound_fonts and load_instrument raise PianoClosedError.
+        After closing, play, record, load_sound_fonts and load_instrument raise PianoClosedError.
         """
         if self._closed:
             return
@@ -390,29 +392,19 @@ class Piano:
 
     def play(
         self,
-        music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey,
-        recording_file: str | Path | None = None,
-        record_seconds: float = 4,
+        music_container: MusicInput,
         *,
         bpm: float = DEFAULT_BPM,
         velocity: int | None = None,
     ) -> None:
-        """Play a provided music container and control recording settings.
+        """Play a music container through the audio output.
 
-        Central user facing method of Piano class to play or record a given music container. Handles setting
-        up audio output or recording to audio file and handles switching between playing audio and recording to wav
-        file.
-
-        Every note plays on channel 1, where the instrument is selected, whatever channel its Note has. A recording
-        starts and ends in silence: notes still sounding before it or at its end are stopped and faded out.
+        Every note plays on channel 1, where the instrument is selected, whatever channel its Note has.
 
         Args:
             music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music, a key
                 index, a PianoKey, or a note string such as "C#-4". A note string without an octave, such as "C", is
                 in octave 4, mingus' default
-            recording_file: Path to a wav file where audio should be saved to. If passed music_container will be
-                recorded
-            record_seconds: The duration of recording in seconds
             bpm: Tempo in beats per minute for Bars and Tracks. Notes and NoteContainers ignore it
             velocity: How hard the keys are struck, from 0 to 127. None keeps each note's own velocity (mingus'
                 default is 64). A given velocity applies to every note; the music container passed in is not changed
@@ -424,57 +416,102 @@ class Piano:
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
             AudioDriverError: If FluidSynth has no audio driver of the configured name
-            PlaybackOptionError: If bpm or record_seconds is not a positive finite number, or velocity is not an
-                integer from 0 to 127
+            PlaybackOptionError: If bpm is not a positive finite number, or velocity is not an integer from 0 to 127
             PianoClosedError: If the piano was closed
 
         """
+        container = self._prepare(music_container, velocity=velocity, bpm=bpm)
+        logger.debug("Playing music container: %s via audio", container)  # pragma: no mutate
+        self._start_audio_output()
+        self._play_container(container, bpm)
+
+    def record(
+        self,
+        music_container: MusicInput,
+        path: str | Path,
+        *,
+        seconds: float = 4,
+        bpm: float = DEFAULT_BPM,
+        velocity: int | None = None,
+    ) -> None:
+        """Record a music container to a wav file instead of playing it through the audio output.
+
+        A recording starts and ends in silence: notes still sounding before it or at its end are stopped and faded out.
+        Every note plays on channel 1, where the instrument is selected, whatever channel its Note has.
+
+        Args:
+            music_container: What to record, as for play
+            path: The wav file to write
+            seconds: How long to record after the music container was played, in seconds. Notes and NoteContainers take
+                no time to play, so their recording is this long; Bars and Tracks are recorded first, at their tempo
+            bpm: Tempo in beats per minute for Bars and Tracks. Notes and NoteContainers ignore it
+            velocity: How hard the keys are struck, from 0 to 127, as for play
+
+        Raises:
+            InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
+            UnparsableNoteError: If a note string is not a note name with an optional octave
+            InvalidKeyIndexError: If a key index is outside 0 to 87
+            UnsupportedContainerError: If the music container type is not supported
+            PlaybackOptionError: If seconds or bpm is not a positive finite number, or velocity is not an integer from
+                0 to 127
+            PianoClosedError: If the piano was closed
+
+        """
+        container = self._prepare(music_container, velocity=velocity, seconds=seconds, bpm=bpm)
+        logger.debug("Recording music container: %s to file %s", container, path)  # pragma: no mutate
+        self._stop_audio_output()
+        # Without audio output FluidSynth renders only while recording, so notes still sounding from before would
+        # carry over into the file
+        self._stop_sounds()
+        self._sequencer.start_recording(str(path))
+        try:
+            self._play_container(container, bpm)
+            samples = globalfs.raw_audio_string(
+                self._sequencer.fs.get_samples(int(seconds * WAV_SAMPLE_FREQUENCY)),
+            )
+            self._sequencer.wav.writeframes(bytes(samples))
+        finally:
+            wav = self._sequencer.wav
+            # It seems we have to delete the wav attribute after recording in order to enable switching between
+            # audio output and recording for all music containers. The
+            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Bar and
+            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Track use the
+            # mingus.midi.fluidsynth.FluidSynthSequencer.sleep methods internally which is for some reason also
+            # used to record in mingus.
+            # See also my issue in the mingus repository: https://github.com/bspaans/python-mingus/issues/77
+            # When wav attribute is present sleep tries to write to the wave file and if not the method just
+            # sleeps. If we do not delete the wav attribute it is still there as None and play_Bar tries to write
+            # to the file resulting in AttributeError: 'NoneType' object has no attribute 'write'.
+            # Deleted first, so even a failing close leaves no wav behind for the next play
+            delattr(self._sequencer, "wav")
+            # Notes still sounding at the end would carry over into the next recording, or play aloud afterwards
+            self._stop_sounds()
+            wav.close()
+
+        logger.debug("Finished recording to %s", path)  # pragma: no mutate
+
+    def _prepare(self, music_container: MusicInput, *, velocity: int | None, **positive: float) -> MusicContainer:
+        """Check the options and the music container, and return the mingus container to play or record.
+
+        Args:
+            music_container: What play or record was given
+            velocity: The velocity option of play or record
+            positive: The options that must be positive finite numbers, by name
+
+        Raises:
+            PianoClosedError: If the piano was closed
+            PlaybackOptionError: If an option is invalid, see _check_playback_options
+            InvalidNoteError, InvalidKeyIndexError, UnsupportedContainerError: As _normalize and _validate raise them
+
+        """
         self._ensure_open()
-        self._check_playback_options(bpm=bpm, velocity=velocity, record_seconds=record_seconds)
+        self._check_playback_options(velocity=velocity, **positive)
         container = self._normalize(music_container)
         self._validate(container)
-        container = self._for_playback(container, velocity)
+        return self._for_playback(container, velocity)
 
-        if recording_file is None:
-            logger.debug("Playing music container: %s via audio", container)  # pragma: no mutate
-            self._start_audio_output()
-            self._play_container(container, bpm)
-
-        else:
-            logger.debug("Recording music container: %s to file %s", container, recording_file)  # pragma: no mutate
-            self._stop_audio_output()
-            # Without audio output FluidSynth renders only while recording, so notes still sounding from before would
-            # carry over into the file
-            self._stop_sounds()
-            self._sequencer.start_recording(str(recording_file))
-            try:
-                self._play_container(container, bpm)
-                samples = globalfs.raw_audio_string(
-                    self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
-                )
-                self._sequencer.wav.writeframes(bytes(samples))
-            finally:
-                wav = self._sequencer.wav
-                # It seems we have to delete the wav attribute after recording in order to enable switching between
-                # audio output and recording for all music containers. The
-                # mingus.midi.fluidsynth.FluidSynthSequencer.play_Bar and
-                # mingus.midi.fluidsynth.FluidSynthSequencer.play_Track use the
-                # mingus.midi.fluidsynth.FluidSynthSequencer.sleep methods internally which is for some reason also
-                # used to record in mingus.
-                # See also my issue in the mingus repository: https://github.com/bspaans/python-mingus/issues/77
-                # When wav attribute is present sleep tries to write to the wave file and if not the method just
-                # sleeps. If we do not delete the wav attribute it is still there as None and play_Bar tries to write
-                # to the file resulting in AttributeError: 'NoneType' object has no attribute 'write'.
-                # Deleted first, so even a failing close leaves no wav behind for the next play
-                delattr(self._sequencer, "wav")
-                # Notes still sounding at the end would carry over into the next recording, or play aloud afterwards
-                self._stop_sounds()
-                wav.close()
-
-            logger.debug("Finished recording to %s", recording_file)  # pragma: no mutate
-
-    def _normalize(self, music_container: str | int | Note | NoteContainer | Bar | Track | PianoKey) -> MusicContainer:
-        """Turn what play accepts into a mingus music container.
+    def _normalize(self, music_container: MusicInput) -> MusicContainer:
+        """Turn what play and record accept into a mingus music container.
 
         A note string is parsed into a Note once, a key index or PianoKey becomes the Note of its first identity, and
         mingus containers are returned unchanged.
@@ -506,15 +543,15 @@ class Piano:
         raise UnsupportedContainerError(msg)
 
     @staticmethod
-    def _check_playback_options(*, bpm: float, velocity: int | None, record_seconds: float) -> None:
-        """Check the playback options of play before anything is played.
+    def _check_playback_options(*, velocity: int | None, **positive: float) -> None:
+        """Check the options of play or record before anything is played.
 
         Raises:
-            PlaybackOptionError: If bpm or record_seconds is not a positive finite number, or velocity is not an
+            PlaybackOptionError: If an option in positive is not a positive finite number, or velocity is not an
                 integer from 0 to 127
 
         """
-        for name, value in (("bpm", bpm), ("record_seconds", record_seconds)):
+        for name, value in positive.items():
             if not math.isfinite(value) or value <= 0:
                 msg = f"{name} must be a positive finite number. Got {value}"
                 raise PlaybackOptionError(msg)
