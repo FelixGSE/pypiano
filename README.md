@@ -14,12 +14,14 @@ sudo apt install libfluidsynth3   # Debian / Ubuntu
 brew install fluid-synth          # macOS
 ```
 
-Then install PyPiano from GitHub with pip or uv:
+Then install PyPiano from PyPI with pip or uv:
 
 ```bash
-pip install git+https://github.com/FelixGSE/pypiano.git
-uv add git+https://github.com/FelixGSE/pypiano.git
+pip install pypiano
+uv add pypiano
 ```
+
+The development version installs from GitHub: `pip install git+https://github.com/FelixGSE/pypiano.git`.
 
 ## Usage
 
@@ -107,8 +109,10 @@ and a `!` (as in `feat!:`) or a `BREAKING CHANGE:` footer marks a breaking chang
 
 [release-please](https://github.com/googleapis/release-please) keeps a release pull request open that bumps the
 version (`pyproject.toml`, `uv.lock`) and adds the changelog entry. Merging it tags the release, creates the GitHub
-release, runs the tests and attaches the built package. Publishing to PyPI happens in the same workflow once the
-repository variable `PUBLISH_TO_PYPI` is `true`.
+release, runs the tests, attaches the built package and publishes it to PyPI with
+[trusted publishing](https://docs.pypi.org/trusted-publishers/) (no API token; the `pypi` environment of this
+repository). If a job of that run fails, "Re-run failed jobs" retries it for the same release; release-please creates
+each release only once, so a new run would not.
 
 ## The bundled sound font
 

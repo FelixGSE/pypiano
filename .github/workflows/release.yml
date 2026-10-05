@@ -75,8 +75,9 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     needs: [release-please, build]
-    # Off until the repository variable PUBLISH_TO_PYPI is set to true (the bundled sound font is too large for PyPI)
-    if: needs.release-please.outputs.release_created == 'true' && vars.PUBLISH_TO_PYPI == 'true'
+    # If a job of a release run fails, "Re-run failed jobs" retries it with the same release; a new run would not, since
+    # release-please creates each release only once
+    if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
