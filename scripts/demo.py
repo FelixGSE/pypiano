@@ -13,7 +13,7 @@ from pypiano import Piano
 
 logger = logging.getLogger("pypiano.demo")
 
-# fluidsynth plays asynchronously, so keep the process alive until the note has sounded
+# How long the note sounds for play
 PLAY_SECONDS = 2
 
 
@@ -32,8 +32,7 @@ def main() -> None:
     piano = Piano(instrument=args.instrument)
     if args.command == "play":
         logger.info("Playing %s on %s via audio output", args.note, args.instrument)
-        piano.play(args.note)
-        piano.pause(PLAY_SECONDS)
+        piano.play(args.note, duration=PLAY_SECONDS)
     else:
         piano.record(args.note, args.output, seconds=args.seconds)
         logger.info("Recorded %s on %s to %s", args.note, args.instrument, args.output.resolve())

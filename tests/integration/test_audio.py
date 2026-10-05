@@ -1,13 +1,14 @@
 import array
 import subprocess
 import sys
+import time
 import wave
 from pathlib import Path
 
 import pytest
 from mingus.containers import Bar, Note
 
-from pypiano import DEFAULT_SOUND_FONTS, Piano, SoundFontError
+from pypiano import DEFAULT_SOUND_FONTS, Piano, PlaybackOptionError, SoundFontError
 
 pytestmark = pytest.mark.integration
 
@@ -21,6 +22,13 @@ def read_wav(path: Path) -> tuple[int, int]:
     with wave.open(str(path)) as wav:
         samples = array.array("h", wav.readframes(wav.getnframes()))
         return wav.getnframes(), max(map(abs, samples))
+
+
+def peak_between(path: Path, start: float, end: float) -> int:
+    """Return the peak amplitude of a 16-bit stereo wav file from start to end, in seconds."""
+    with wave.open(str(path)) as wav:
+        samples = array.array("h", wav.readframes(wav.getnframes()))
+    return max(map(abs, samples[round(start * 44100) * 2 : round(end * 44100) * 2]))
 
 
 def read_frames(path: Path) -> bytes:
@@ -53,11 +61,13 @@ def test_piano_should_record_a_longer_bar_when_tempo_is_slower(tmp_path: Path) -
     slow, fast = tmp_path / "slow.wav", tmp_path / "fast.wav"
     # When
     with Piano() as piano:
-        piano.record(make_bar("C-4", "E-4", "G-4", "C-5"), slow, seconds=0.5, bpm=60)
-        piano.record(make_bar("C-4", "E-4", "G-4", "C-5"), fast, seconds=0.5, bpm=240)
+        piano.record(make_bar("C-4", "E-4", "G-4", "C-5"), slow, bpm=60)
+        piano.record(make_bar("C-4", "E-4", "G-4", "C-5"), fast, bpm=240)
     # Then
     (slow_frames, slow_peak), (fast_frames, fast_peak) = read_wav(slow), read_wav(fast)
-    assert slow_frames > fast_frames
+    # Four quarter notes take 4 seconds at 60 bpm and 1 second at 240 bpm, each followed by its fade
+    assert 4 * 44100 < slow_frames < 6 * 44100
+    assert 44100 < fast_frames < 3 * 44100
     assert slow_peak > AUDIBLE_PEAK
     assert fast_peak > AUDIBLE_PEAK
 
@@ -140,6 +150,72 @@ def test_piano_should_play_through_a_driver_mingus_does_not_know_when_fluidsynth
     # Then
     (output,) = tmp_path.glob("fluidsynth.*")
     assert output.stat().st_size > 0
+
+
+def test_piano_should_play_as_long_as_the_music_when_playing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given FluidSynth's file driver, which renders in real time like a sound device
+    monkeypatch.chdir(tmp_path)
+    with Piano(audio_driver="file") as piano:
+        # The first play starts the audio driver, which is not part of the timing
+        piano.play("C-4", duration=0.1)
+        # When a note sounds for 0.3 seconds, and four quarter notes at 240 bpm take a second
+        start = time.monotonic()
+        piano.play("C-4", duration=0.3)
+        note_seconds = time.monotonic() - start
+        start = time.monotonic()
+        piano.play(make_bar("C-4", "E-4", "G-4", "C-5"), bpm=240)
+        bar_seconds = time.monotonic() - start
+    # Then play returns when the music has finished; the upper limits leave room for a busy CI runner
+    assert 0.3 <= note_seconds < 0.8
+    assert 1 <= bar_seconds < 1.5
+
+
+def test_piano_should_record_the_music_and_its_fade_until_silent_when_no_length_is_given(tmp_path: Path) -> None:
+    # Given a note that sounds for half a second
+    recording = tmp_path / "c4.wav"
+    # When
+    with Piano() as piano:
+        piano.record("C-4", recording, duration=0.5)
+    # Then the recording holds the note, then its fade, which ends in silence within 5 seconds
+    frames, _ = read_wav(recording)
+    assert 0.5 * 44100 < frames < 5.5 * 44100
+    assert peak_between(recording, 0, 0.5) > AUDIBLE_PEAK
+    assert peak_between(recording, (frames - 441) / 44100, frames / 44100) <= SILENCE_PEAK
+
+
+@pytest.mark.parametrize(("seconds", "frames"), [(1.15, 50715), (0.25, 11025), (3, 132300)])
+def test_piano_should_record_exactly_the_given_length_when_seconds_is_given(
+    tmp_path: Path, seconds: float, frames: int
+) -> None:
+    # Given a note that sounds for a second, so a shorter recording cuts it off and a longer one holds its fade
+    recording = tmp_path / "c4.wav"
+    # When
+    with Piano() as piano:
+        piano.record("C-4", recording, seconds=seconds)
+    # Then
+    assert read_wav(recording)[0] == frames
+
+
+def test_piano_should_sound_longer_when_the_duration_is_longer(tmp_path: Path) -> None:
+    # Given the same note recorded with two durations
+    short, long = tmp_path / "short.wav", tmp_path / "long.wav"
+    # When
+    with Piano() as piano:
+        piano.record("C-4", short, duration=0.5, seconds=2)
+        piano.record("C-4", long, duration=1.5, seconds=2)
+    # Then the note held for 1.5 seconds still sounds after a second, when the one released after 0.5 has faded
+    assert peak_between(long, 1, 1.2) > AUDIBLE_PEAK > peak_between(short, 1, 1.2)
+
+
+def test_piano_should_leave_no_file_when_a_bpm_set_in_a_bar_is_invalid(tmp_path: Path) -> None:
+    # Given a bar whose second NoteContainer sets a tempo of 0, which mingus would divide by
+    bar = make_bar("C-4", "E-4")
+    bar.bar[1][2].bpm = 0
+    recording = tmp_path / "bar.wav"
+    # When / Then
+    with Piano() as piano, pytest.raises(PlaybackOptionError):
+        piano.record(bar, recording)
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_python_should_exit_cleanly_when_a_closed_piano_is_garbage_collected(tmp_path: Path) -> None:

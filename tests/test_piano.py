@@ -1,4 +1,8 @@
+import errno
+import math
+import os
 import re
+import wave
 from pathlib import Path
 from typing import TypeAlias
 from unittest.mock import MagicMock, call
@@ -426,50 +430,216 @@ def test_piano_should_raise_value_error_when_piano_key_is_not_on_the_keyboard(
     sequencer.play_Note.assert_not_called()
 
 
-def recording_steps(sequencer: MagicMock) -> list[object]:
-    """The sequencer calls that silence, record and render, in order."""
-    steps = {"fs.cc", "fs.get_samples", "start_recording", "play_Note", "play_Bar", "wav.writeframes", "wav.close"}
-    return [step for step in sequencer.mock_calls if step[0] in steps]
+# The sample value of the music the fake FluidSynth below renders
+MUSIC = 7
 
 
-def test_piano_should_write_wav_file_between_silences_when_recording(piano: Piano, sequencer: MagicMock) -> None:
-    # Given a piano with active audio output
+def frames(value: int, count: int) -> bytes:
+    """count stereo frames of 16-bit samples, all of value."""
+    return np.full(2 * count, value, dtype=np.int16).tobytes()
+
+
+def render_like_fluidsynth(sequencer: MagicMock, chunks: list[int] | None = None) -> None:
+    """Make the mocked sequencer render like FluidSynth while recording.
+
+    get_samples renders MUSIC, except 10 ms chunks (441 frames), which take their values from chunks in order, starting
+    with the one rendered before the recording, and are silent once chunks runs out. sleep renders its time into the
+    sequencer's wav, as mingus' sleep does while recording.
+    """
+    values = iter(chunks or [])
+
+    def get_samples(count: int) -> np.ndarray:
+        return np.full(2 * count, next(values, 0) if count == 441 else MUSIC, dtype=np.int16)
+
+    def sleep(seconds: float) -> None:
+        sequencer.wav.writeframes(np.asarray(sequencer.fs.get_samples(int(seconds * 44100))).tobytes())
+
+    sequencer.fs.get_samples.side_effect = get_samples
+    sequencer.sleep.side_effect = sleep
+
+
+def read_wav(path: Path) -> tuple[tuple[int, int, int], bytes]:
+    """Return a wav file's channels, sample width and frame rate, and its frames."""
+    with wave.open(str(path)) as wav:
+        return (wav.getnchannels(), wav.getsampwidth(), wav.getframerate()), wav.readframes(wav.getnframes())
+
+
+def test_piano_should_record_the_music_and_its_fade_between_silences_when_no_length_is_given(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path
+) -> None:
+    # Given a piano with active audio output, and FluidSynth falling silent right after the music
     piano._start_audio_output()
-    wav = sequencer.wav
+    render_like_fluidsynth(sequencer)
+    path = tmp_path / "c4.wav"
     # When
-    piano.record("C-4", "test.wav", seconds=2)
-    # Then all sound stops (and fades) before the recording starts and after it ends, so no note carries over
+    piano.record("C-4", path)
+    # Then the file holds the second the note sounds and the 10 ms in which it fell silent, as 16-bit stereo
+    assert read_wav(path) == ((2, 2, 44100), frames(MUSIC, 44100) + frames(0, 441))
+    # All sound stops (and fades) before the recording starts and after it ends, so no note carries over
     (played,), _ = sequencer.play_Note.call_args
-    assert recording_steps(sequencer) == [
+    steps = {"fs.cc", "fs.get_samples", "play_Note", "sleep", "stop_Note"}
+    assert [step for step in sequencer.mock_calls if step[0] in steps] == [
         call.fs.cc(1, 120, 0),
         call.fs.get_samples(441),
-        call.start_recording("test.wav"),
         call.play_Note(played),
-        call.fs.get_samples(2 * piano_module.WAV_SAMPLE_FREQUENCY),
-        # The 8 silent samples the sequencer fixture renders, as 16-bit bytes
-        call.wav.writeframes(bytes(16)),
+        call.sleep(1.0),
+        call.fs.get_samples(44100),
+        call.stop_Note(played),
+        call.fs.cc(1, 123, 0),
+        call.fs.get_samples(441),
         call.fs.cc(1, 120, 0),
         call.fs.get_samples(441),
-        call.wav.close(),
     ]
     assert not piano._audio_driver_is_active
-    # The wav attribute is removed so mingus' sleep does not write to a closed file
+    # The wav attribute is removed, so mingus' sleep waits in real time again
     assert not hasattr(sequencer, "wav")
-    assert wav.close.call_count == 1
+    assert list(tmp_path.iterdir()) == [path]
 
 
-def test_piano_should_close_and_remove_the_wav_when_recording_fails(piano: Piano, sequencer: MagicMock) -> None:
-    # Given mingus raises while playing, e.g. a ZeroDivisionError for a NoteContainer with bpm=0 in a Bar
+def test_piano_should_record_the_fade_up_to_the_first_silent_chunk_when_no_length_is_given(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path
+) -> None:
+    # Given FluidSynth fades out over three 10 ms chunks after the music, down to the dither's 1
+    render_like_fluidsynth(sequencer, [0, 900, 30, 1])
+    path = tmp_path / "c4.wav"
+    # When
+    piano.record("C-4", path, duration=0.5)
+    # Then the fade is recorded up to and including the first silent chunk
+    assert read_wav(path)[1] == frames(MUSIC, 22050) + frames(900, 441) + frames(30, 441) + frames(1, 441)
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"),
+    [
+        (1, ([], 44100)),
+        (0.5, ([], 22050)),
+        (1.15, ([call(6615)], 50715)),
+        (2.5, ([call(44100), call(22050)], 110250)),
+    ],
+    ids=["as long as the music", "shorter: cut", "rounded to a frame", "longer: filled a second at a time"],
+)
+def test_piano_should_record_exactly_the_given_length_when_seconds_is_given(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path, seconds: float, expected: tuple[list[object], int]
+) -> None:
+    # Given a note that sounds for one second
+    render_like_fluidsynth(sequencer)
+    path = tmp_path / "c4.wav"
+    fill, length = expected
+    # When
+    piano.record("C-4", path, seconds=seconds)
+    # Then the file has round(seconds * 44100) frames, and only what was missing was rendered
+    assert read_wav(path)[1] == frames(MUSIC, length)
+    assert sequencer.fs.get_samples.call_args_list == [call(441), call(44100), *fill, call(441)]
+
+
+@pytest.mark.parametrize("path_type", [str, Path], ids=["str", "pathlib.Path"])
+def test_piano_should_write_the_recording_when_the_path_is_a_str_or_a_path(
+    piano: Piano, tmp_path: Path, path_type: type
+) -> None:
+    # Given a path to record to, as a str or a pathlib.Path
+    path = tmp_path / "c4.wav"
+    # When
+    piano.record("C-4", path_type(path), seconds=0.5)
+    # Then
+    assert read_wav(path)[0] == (2, 2, 44100)
+
+
+def test_piano_should_keep_the_file_and_leave_nothing_behind_when_recording_fails(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path
+) -> None:
+    # Given an existing file, and mingus raising while it plays
+    path = tmp_path / "c4.wav"
+    path.write_bytes(b"an earlier recording")
     sequencer.play_Bar.side_effect = ZeroDivisionError
-    wav = sequencer.wav
     # When / Then
     with pytest.raises(ZeroDivisionError):
-        piano.record(make_bar("C-4"), "test.wav")
-    wav.writeframes.assert_not_called()
-    wav.close.assert_called_once_with()
+        piano.record(make_bar("C-4"), path)
+    assert path.read_bytes() == b"an earlier recording"
+    assert list(tmp_path.iterdir()) == [path]
     assert not hasattr(sequencer, "wav")
-    # The sound stops after the failed recording too
-    assert sequencer.fs.cc.call_args_list == [call(1, 120, 0), call(1, 120, 0)]
+    # The notes are released after the failed play, and the sound stops after the failed recording too
+    assert sequencer.fs.cc.call_args_list == [call(1, 120, 0), call(1, 123, 0), call(1, 120, 0)]
+
+
+def test_piano_should_raise_type_error_before_rendering_when_the_path_is_not_a_path(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given no path
+    # When / Then it fails before anything is played or rendered
+    with pytest.raises(TypeError):
+        piano.record("C-4", None)  # ty: ignore[invalid-argument-type] - None is the point
+    sequencer.play_Note.assert_not_called()
+    sequencer.fs.get_samples.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        ("missing/c4.wav", FileNotFoundError, errno.ENOENT, "missing"),
+        (".", IsADirectoryError, errno.EISDIR, "."),
+    ],
+    ids=["missing directory", "a directory"],
+)
+def test_piano_should_check_the_path_before_rendering_when_recording(
+    piano: Piano,
+    sequencer: MagicMock,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: tuple[str, type[OSError], int, str],
+) -> None:
+    # Given a path that cannot be written, relative to an empty directory
+    path, error, code, filename = case
+    monkeypatch.chdir(tmp_path)
+    # When / Then it fails like opening the file would, before anything is played or rendered, and writes nothing
+    with pytest.raises(error) as raised:
+        piano.record("C-4", path)
+    assert (raised.value.errno, raised.value.strerror, raised.value.filename) == (code, os.strerror(code), filename)
+    sequencer.play_Note.assert_not_called()
+    sequencer.fs.get_samples.assert_not_called()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_wav_buffer_should_keep_exactly_its_length_when_more_frames_are_written() -> None:
+    # Given a buffer of three frames
+    buffer = piano_module._WavBuffer(3)
+    # When two writes of two frames each are written, the second one beyond its length
+    buffer.writeframes(frames(1, 2))
+    buffer.writeframes(frames(2, 2))
+    # Then the second write is cut at the length, and nothing is missing
+    assert buffer.frames == frames(1, 2) + frames(2, 1)
+    assert buffer.missing_frames == 0
+
+
+@pytest.mark.parametrize("bpm", [0, -60, math.nan, math.inf])
+@pytest.mark.parametrize("in_track", [False, True], ids=["bar", "track"])
+def test_piano_should_raise_playback_option_error_when_a_bpm_set_in_a_bar_is_invalid(
+    piano: Piano, sequencer: MagicMock, bpm: float, *, in_track: bool
+) -> None:
+    # Given a bar whose second NoteContainer changes the tempo to an invalid one, which mingus would fail on
+    bar = make_bar("C-4", "E-4")
+    bar.bar[1][2].bpm = bpm
+    container = Track().add_bar(bar) if in_track else bar
+    # When / Then
+    with pytest.raises(
+        errors.PlaybackOptionError,
+        match=rf"^bpm of a NoteContainer in a Bar must be a positive finite number\. Got {re.escape(str(bpm))}$",
+    ):
+        piano.play(container)
+    sequencer.play_Bar.assert_not_called()
+    sequencer.play_Track.assert_not_called()
+
+
+@pytest.mark.parametrize("bpm", [0.5, 90])
+def test_piano_should_play_a_bar_when_a_note_container_in_it_sets_a_valid_bpm(
+    piano: Piano, sequencer: MagicMock, bpm: float
+) -> None:
+    # Given a bar whose second NoteContainer changes the tempo, also to a slow one below 1 bpm
+    bar = make_bar("C-4", "E-4")
+    bar.bar[1][2].bpm = bpm
+    # When
+    piano.play(bar)
+    # Then
+    sequencer.play_Bar.assert_called_once_with(bar, bpm=120)
 
 
 def test_piano_should_render_until_silent_when_stopping_sounds(piano: Piano, sequencer: MagicMock) -> None:
@@ -529,18 +699,6 @@ def test_piano_should_sleep_when_paused(monkeypatch: pytest.MonkeyPatch) -> None
     Piano.pause(2)
     # Then
     sleep.assert_called_once_with(2)
-
-
-def test_piano_should_record_to_path_when_path_is_a_pathlib_path(
-    piano: Piano, sequencer: MagicMock, tmp_path: Path
-) -> None:
-    # Given a recording file as a pathlib.Path
-    path = tmp_path / "c4.wav"
-    # When
-    piano.record("C-4", path, seconds=0.5)
-    # Then
-    sequencer.start_recording.assert_called_once_with(str(path))
-    assert call(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY)) in sequencer.fs.get_samples.call_args_list
 
 
 def test_piano_should_play_bar_with_a_rest_when_given_one(piano: Piano, sequencer: MagicMock) -> None:

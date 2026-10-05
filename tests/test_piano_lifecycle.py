@@ -1,7 +1,7 @@
 from collections.abc import Callable
+from pathlib import Path
 from unittest.mock import MagicMock, call
 
-import numpy as np
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 
@@ -254,48 +254,134 @@ def test_piano_should_start_the_configured_audio_driver_when_playing(sequencer: 
     sequencer.start_audio_output.assert_called_once_with("pipewire")
 
 
-def test_piano_should_record_four_seconds_when_no_recording_length_is_given(piano: Piano, sequencer: MagicMock) -> None:
-    # Given a recording without seconds
-    # When
-    piano.record("C-4", "out.wav")
-    # Then
-    assert call(4 * piano_module.WAV_SAMPLE_FREQUENCY) in sequencer.fs.get_samples.call_args_list
-
-
-def test_piano_should_write_the_rendered_samples_when_recording(piano: Piano, sequencer: MagicMock) -> None:
-    # Given fluidsynth renders these samples
-    rendered = np.array([1, -1, 2, -2], dtype=np.int16)
-    sequencer.fs.get_samples.return_value = rendered
-    wav = sequencer.wav
-    # When
-    piano.record("C-4", "out.wav", seconds=1)
-    # Then
-    wav.writeframes.assert_called_once_with(rendered.tobytes())
-
-
-def test_piano_should_record_a_copy_at_the_velocity_when_velocity_is_given(piano: Piano, sequencer: MagicMock) -> None:
+def test_piano_should_record_a_copy_at_the_velocity_when_velocity_is_given(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path
+) -> None:
     # Given a note with mingus' default velocity
     note = Note("C-4")
     # When
-    piano.record(note, "out.wav", velocity=80)
+    piano.record(note, tmp_path / "c4.wav", velocity=80)
     # Then
     ((played,), _) = sequencer.play_Note.call_args
     assert played.velocity == 80
     assert note.velocity == 64
 
 
-def test_piano_should_pass_bpm_when_recording_a_bar(piano: Piano, sequencer: MagicMock) -> None:
+def test_piano_should_pass_bpm_when_recording_a_bar(piano: Piano, sequencer: MagicMock, tmp_path: Path) -> None:
     # Given a bar
     bar = make_bar("C-4", "E-4")
     # When
-    piano.record(bar, "out.wav", seconds=1, bpm=90)
+    piano.record(bar, tmp_path / "bar.wav", seconds=1, bpm=90)
     # Then
     sequencer.play_Bar.assert_called_once_with(bar, bpm=90)
 
 
-@pytest.mark.parametrize("name", ["bpm", "seconds"])
+@pytest.mark.parametrize("name", ["bpm", "seconds", "duration"])
 def test_piano_should_name_the_option_when_a_playback_option_is_invalid(piano: Piano, name: str) -> None:
     # Given an invalid value for one option
     # When / Then
     with pytest.raises(errors.PlaybackOptionError, match=f"^{name} must be a positive finite number. Got 0$"):
         piano.record("C-4", "out.wav", **{name: 0})
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        (method, name, value)
+        for method, name in [("play", "bpm"), ("play", "duration"), ("record", "bpm"), ("record", "duration")]
+        for value in (None, True, "1")
+    ]
+    # seconds may be None: that records until the fade has ended
+    + [("record", "seconds", True), ("record", "seconds", "1")],
+)
+def test_piano_should_raise_playback_option_error_before_playing_when_an_option_is_not_a_number(
+    piano: Piano, sequencer: MagicMock, tmp_path: Path, case: tuple[str, str, object]
+) -> None:
+    # Given an option that is not a number
+    method, name, value = case
+    args = ("C-4", tmp_path / "out.wav") if method == "record" else ("C-4",)
+    # When / Then it fails before anything is played
+    with pytest.raises(errors.PlaybackOptionError, match=f"^{name} must be a positive finite number"):
+        getattr(piano, method)(*args, **{name: value})
+    sequencer.play_Note.assert_not_called()
+
+
+# duration
+
+
+def test_piano_should_play_a_note_for_its_duration_and_release_the_note_it_played_when_played(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given a note on another channel, which plays as a copy on channel 1
+    note = Note("C-4", channel=2)
+    # When
+    piano.play(note, velocity=80)
+    # Then the copy sounds for a second, and that copy is stopped: mingus stops a note on the channel stored on it
+    played = sequencer.play_Note.call_args.args[0]
+    stopped = sequencer.stop_Note.call_args.args[0]
+    steps = {"start_audio_output", "play_Note", "sleep", "stop_Note", "fs.cc"}
+    assert [step for step in sequencer.mock_calls if step[0] in steps] == [
+        call.start_audio_output(None),
+        call.play_Note(played),
+        call.sleep(1.0),
+        call.stop_Note(stopped),
+        call.fs.cc(1, 123, 0),
+    ]
+    assert stopped is played
+    assert (played.channel, played.velocity) == (1, 80)
+
+
+@pytest.mark.parametrize(
+    ("container", "play", "stop"),
+    [("C-4", "play_Note", "stop_Note"), (NoteContainer(["C-4", "E-4"]), "play_NoteContainer", "stop_NoteContainer")],
+    ids=["note", "note container"],
+)
+def test_piano_should_sound_for_the_given_duration_when_playing_notes(
+    piano: Piano, sequencer: MagicMock, container: str | NoteContainer, play: str, stop: str
+) -> None:
+    # Given a note or note container
+    # When
+    piano.play(container, duration=0.25)
+    # Then
+    sequencer.sleep.assert_called_once_with(0.25)
+    getattr(sequencer, stop).assert_called_once_with(getattr(sequencer, play).call_args.args[0])
+
+
+@pytest.mark.parametrize(
+    ("container", "method"),
+    [(make_bar("C-4", "E-4"), "play_Bar"), (Track().add_bar(make_bar("C-4")), "play_Track")],
+    ids=["bar", "track"],
+)
+def test_piano_should_leave_the_timing_to_bars_and_tracks_when_playing_them(
+    piano: Piano, sequencer: MagicMock, container: Bar | Track, method: str
+) -> None:
+    # Given a bar or track, whose notes have their own values
+    # When
+    piano.play(container, duration=0.25)
+    # Then mingus times and stops the notes; PyPiano only releases what may still be held
+    getattr(sequencer, method).assert_called_once_with(container, bpm=120)
+    sequencer.sleep.assert_not_called()
+    sequencer.stop_Note.assert_not_called()
+    sequencer.stop_NoteContainer.assert_not_called()
+    sequencer.fs.cc.assert_called_once_with(1, 123, 0)
+
+
+def test_piano_should_take_the_duration_when_audio_output_cannot_start(piano: Piano, sequencer: MagicMock) -> None:
+    # Given FluidSynth cannot start an audio driver, e.g. without a sound device
+    sequencer.fs.audio_driver = None
+    # When
+    piano.play("C-4")
+    # Then play takes as long as with a sound device
+    sequencer.sleep.assert_called_once_with(1.0)
+
+
+def test_piano_should_release_all_notes_when_interrupted_while_a_note_sounds(
+    piano: Piano, sequencer: MagicMock
+) -> None:
+    # Given Ctrl+C while the note sounds
+    sequencer.sleep.side_effect = KeyboardInterrupt
+    # When / Then
+    with pytest.raises(KeyboardInterrupt):
+        piano.play("C-4")
+    sequencer.stop_Note.assert_not_called()
+    sequencer.fs.cc.assert_called_once_with(1, 123, 0)
