@@ -1,21 +1,20 @@
-"""Patches for mingus 0.6.1 (the latest release) to work with numpy >= 2.3.
+"""Patches for mingus 0.6.1 (the latest release), applied to mingus.midi.pyfluidsynth when pypiano is imported.
 
-mingus.midi.pyfluidsynth still uses numpy.fromstring in binary mode and ndarray.tostring, both removed in numpy 2.3.
-The replacements below are the same functions using numpy.frombuffer and ndarray.tobytes. All callers in mingus look
-these functions up on the module at call time, so replacing the module attributes is sufficient.
+- numpy >= 2.3: mingus still uses numpy.fromstring in binary mode and ndarray.tostring, both removed in numpy 2.3.
+  fluid_synth_write_s16_stereo and raw_audio_string are replaced by the same functions using numpy.frombuffer and
+  ndarray.tobytes. All callers in mingus look these functions up on the module at call time, so replacing the module
+  attributes is sufficient.
+- Audio drivers: Synth.start asserts that the audio driver is one of FluidSynth 1's, which rejects current ones such as
+  pipewire or wasapi. It is replaced by the same method without that list. The added Synth.audio_drivers returns the
+  drivers the loaded FluidSynth was built with, so PyPiano can check a driver name against them.
+- Drum channel: mingus' Synth has no method to change a channel's type, which PyPiano needs to turn off the drum
+  channel. The added Synth.set_channel_type binds fluid_synth_set_channel_type the way mingus binds the other functions.
 
-The patch is process-wide: any other code using mingus.midi.pyfluidsynth in the same process gets these functions too.
-They behave the same as mingus' originals, apart from working with current numpy.
+The patches are process-wide: any other code using mingus.midi.pyfluidsynth in the same process gets them too. The
+replaced functions and Synth.start behave like mingus' originals, apart from working with current numpy and FluidSynth.
 
 They are adapted from mingus.midi.pyfluidsynth (pyFluidSynth, Copyright 2008-2009 Nathan Whitehead, released under the
 LGPL), which PyPiano uses under the terms of the GPL.
-
-mingus' Synth also has no method to change a channel's type, which PyPiano needs to turn off the drum channel. The
-set_channel_type method added below binds fluid_synth_set_channel_type the way mingus binds the other functions.
-
-Synth.start asserts that the audio driver is one of FluidSynth 1's, which rejects current ones such as pipewire or
-wasapi. It is replaced by the same method without that list, and the added audio_drivers method returns the drivers the
-loaded FluidSynth was built with, so PyPiano can check a driver name against them.
 """
 
 from ctypes import CFUNCTYPE, c_char_p, c_int, c_void_p, create_string_buffer

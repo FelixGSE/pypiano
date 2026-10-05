@@ -3,7 +3,8 @@ name = "pypiano"
 version = "0.1.2"
 description = "Library to programmatically play piano"
 readme = "README.md"
-license = "GPL-3.0-or-later"
+# The code is GPL; the bundled sound font, a subset of FluidR3_GM, is MIT (licenses/LICENSE-FluidR3_GM_sf2.txt)
+license = "GPL-3.0-or-later AND MIT"
 license-files = ["LICENSE", "licenses/*"]
 keywords = ["piano", "music", "midi", "fluidsynth", "mingus", "sound font", "audio"]
 classifiers = [
@@ -23,10 +24,13 @@ classifiers = [
 ]
 authors = [{ name = "FelixGSE" }]
 requires-python = ">=3.11"
+# Minimum versions are the oldest that work, checked by make test-lowest (CI job "Lowest dependencies")
 dependencies = [
+    # 0.6.1 fixes Python 3 integer division bugs in the notes and containers PyPiano uses
     "mingus>=0.6.1",
-    # Imported by mingus.midi.pyfluidsynth, which does not declare it
-    "numpy>=2.4.6",
+    # Used by mingus.midi.pyfluidsynth, which doesn't declare it, and by PyPiano's patches of it (_mingus_compat).
+    # 1.23.2 is the oldest numpy with wheels for Python 3.11
+    "numpy>=1.23.2",
 ]
 
 [project.urls]

@@ -767,7 +767,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "mingus", specifier = ">=0.6.1" },
-    { name = "numpy", specifier = ">=2.4.6" },
+    { name = "numpy", specifier = ">=1.23.2" },
 ]
 
 [package.metadata.requires-dev]

@@ -15,7 +15,7 @@ from mingus.containers.mt_exceptions import NoteFormatError
 from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
-from pypiano._mingus_compat import CHANNEL_TYPE_MELODIC  # importing it also patches mingus for numpy >= 2.3
+from pypiano._mingus_compat import CHANNEL_TYPE_MELODIC  # importing it also patches mingus (see its docstring)
 from pypiano.errors import (
     AudioDriverError,
     InstrumentError,
@@ -36,14 +36,17 @@ DRUM_CHANNEL = 9
 
 DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM_pianos.sf2"))
 
-# The audio drivers of FluidSynth 2. Which of them a FluidSynth has depends on the platform and how it was built; see
-# Synth.audio_drivers(), or `fluidsynth -a help`
+# The audio drivers of FluidSynth 2.0 to 2.6 (src/drivers/fluid_adriver.c). Which of them a FluidSynth has depends on
+# its version (2.4.4 added sdl3, 2.5 removed sdl2), the platform and how it was built; see Synth.audio_drivers(), or
+# `fluidsynth -a help`
 AudioDriver: TypeAlias = Literal[
     "alsa",
     "coreaudio",
+    "dart",
     "dsound",
     "file",
     "jack",
+    "kai",
     "oboe",
     "opensles",
     "oss",
@@ -51,6 +54,7 @@ AudioDriver: TypeAlias = Literal[
     "portaudio",
     "pulseaudio",
     "sdl2",
+    "sdl3",
     "sndman",
     "wasapi",
     "waveout",
