@@ -1,13 +1,13 @@
 # PyPiano
 
-PyPiano is a python library to programmatically play piano. It is an easy-to-use abstraction layer on top of the
-[python-mingus](https://bspaans.github.io/python-mingus/) package providing a simple user interface to play mingus music containers, such as Notes,
-NoteContainers, Bars and Tracks. It bundles a default sound fonts file to enable playing and recording audio out
-of the box. By default, 8 different pianos are available. It allows playing Piano via audio output or recording music to wav files.
+PyPiano plays and records piano from Python. You play note names such as `"C-4"`, or the Notes, NoteContainers, Bars
+and Tracks of [mingus](https://github.com/bspaans/python-mingus), through your speakers or into a wav file.
+[FluidSynth](https://www.fluidsynth.org/) does the sound, and a sound font with eight pianos is included, so it works
+out of the box.
 
 ## Installation
 
-PyPiano needs Python 3.11 or newer and the [FluidSynth](https://www.fluidsynth.org/) library:
+PyPiano needs Python 3.11 or newer and the FluidSynth library:
 
 ```bash
 sudo apt install libfluidsynth3   # Debian / Ubuntu
@@ -55,112 +55,72 @@ with Piano() as p:
     p.pause(2)
 ```
 
-The same code works with more complex mingus containers like NoteContainers, Bars and Tracks. You can also pass a
-key index from 0 (A-0) to 87 (C-8), or a `PianoKey` from `p.keyboard`.
+`play()` takes a note name, a key index from 0 (A-0) to 87 (C-8), a `PianoKey` from `p.keyboard`, or any mingus Note,
+NoteContainer, Bar or Track. Without `recording_file` it plays through the audio output; with it, it writes a wav file
+of `record_seconds` seconds. `velocity` sets how hard every note is struck, and `bpm` the tempo of bars and tracks.
+
+### Note names
 
 Note names follow [scientific pitch notation](https://en.wikipedia.org/wiki/Scientific_pitch_notation), like mingus:
-octave numbers go up at C, so middle C is `C-4` and A-4 is 440 Hz. Every key can be addressed by either of its names,
-for example `C#-4` or `Db-4`. The octave boundary applies to enharmonic names too: `B#-3` is the same key as `C-4`, and
-`Cb-5` is the same key as `B-4`. `play()` also takes a name without an octave, such as `"C"`, and plays it in octave 4,
-mingus' default. A string that is not a note name raises `UnparsableNoteError`, an `InvalidNoteError`.
+octave numbers go up at C, so middle C is `C-4` and A-4 is 440 Hz. Every key has both of its names, for example `C#-4`
+and `Db-4`, and the octave boundary applies to them too: `B#-3` is the same key as `C-4`, and `Cb-5` the same as `B-4`.
+`play()` also takes a name without an octave, such as `"C"`, in octave 4.
 
-Importing `pypiano` changes mingus' fluidsynth bindings (`mingus.midi.pyfluidsynth`) for the whole process:
+### Instruments
 
-- It loads the FluidSynth library through mingus; on macOS it also looks in Homebrew's lib directory.
-- It replaces two functions, so recording works with numpy 2.3 or newer.
-- It replaces `Synth.start`, which only accepted FluidSynth 1's audio drivers, with a version that accepts every driver.
-- It adds the `Synth` methods `audio_drivers` and `set_channel_type`.
+The included sound font has the eight General MIDI pianos, as `Instrument` members or by their names. The default
+is the Acoustic Grand Piano.
 
-Other code in the same process that uses mingus' fluidsynth bindings gets these changes too.
+| Instrument                         | Name                      |
+| ---------------------------------- | ------------------------- |
+| `Instrument.ACOUSTIC_GRAND_PIANO`  | `"Acoustic Grand Piano"`  |
+| `Instrument.BRIGHT_ACOUSTIC_PIANO` | `"Bright Acoustic Piano"` |
+| `Instrument.ELECTRIC_GRAND_PIANO`  | `"Electric Grand Piano"`  |
+| `Instrument.HONKY_TONK_PIANO`      | `"Honky-tonk Piano"`      |
+| `Instrument.ELECTRIC_PIANO_1`      | `"Electric Piano 1"`      |
+| `Instrument.ELECTRIC_PIANO_2`      | `"Electric Piano 2"`      |
+| `Instrument.HARPSICHORD`           | `"Harpsichord"`           |
+| `Instrument.CLAVI`                 | `"Clavi"`                 |
 
-## Development
+Any other General MIDI sound font works too, and then program numbers select its instruments, for example the violin:
+`Piano("FluidR3_GM.sf2", instrument=40)`.
 
-The devcontainer (`.devcontainer/`) has everything installed. Common commands go through `make`:
+### Audio output
 
-```bash
-make install   # uv sync
-make soundfont         # build the piano sound font from Debian's FluidR3_GM if it is missing
-make soundfont-check   # rebuild it and compare byte by byte with the bundled file
-make lint      # run all pre-commit hooks on all files
-make test      # pytest; make test-all runs every supported Python version
-make coverage  # pytest with coverage, fails below COVERAGE_MIN (default 100, e.g. make coverage COVERAGE_MIN=90)
-make mutation  # mutation testing: changes the code in small ways and fails if no test notices (MUTATION_MIN, default 100)
-make test-integration  # tests with real audio: records notes and runs the README example
-make test-lowest       # all tests with the oldest dependency versions pyproject.toml allows, on Python 3.11
-make play      # play a note via audio output (needs a sound device, so not inside the container)
-make record    # record a note to demo.wav
-make record NOTE=A-4 INSTRUMENT="Honky-tonk Piano" OUTPUT=a4.wav RECORD_SECONDS=3
-```
+FluidSynth uses its default audio driver. To choose another one, pass its name, for example
+`Piano(audio_driver="pipewire")`. Which drivers there are depends on how FluidSynth was built; an unknown name raises
+`AudioDriverError` with the list. Without a sound device, playing logs a warning and nothing is heard, while recording
+to a file works as usual.
+
+### Errors
+
+PyPiano's own errors derive from `PyPianoError`, for example `InvalidNoteError` for a note outside the 88 keys. Each
+one also derives from the built-in exception it stands for, such as `ValueError` or `TypeError`.
+
+### Good to know
+
+Importing `pypiano` adjusts mingus' FluidSynth bindings (`mingus.midi.pyfluidsynth`) for the whole process: it finds
+Homebrew's FluidSynth on macOS, makes recording work with numpy 2.3 or newer, and accepts every audio driver of
+FluidSynth 2. Other code in the same process that uses these bindings gets the same changes.
+
+## The included sound font
+
+PyPiano includes the eight pianos of FluidR3_GM by Frank Wen, taken from Debian's
+[fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont) package: 19 MB instead of the full font's
+148 MB, and they sound the same. How the file is built from Debian's package is described in
+[CONTRIBUTING.md](https://github.com/FelixGSE/pypiano/blob/HEAD/CONTRIBUTING.md#the-sound-font).
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-Please add or update tests with your change: `make lint` must pass, `make coverage` requires 100% line and branch
-coverage, and `make mutation` requires every mutant to be caught. A surviving mutant is a code change no test notices;
-its diff shows which test is missing. If a mutant cannot change behavior (an equivalent mutant), mark the line with
-`# pragma: no mutate` and say why.
-
-The bundled sound font is built with `make soundfont` (see [The bundled sound font](#the-bundled-sound-font)); the
-devcontainer has the tool it needs. If you change how it is built, update the checksum in
-`scripts/build_sound_font.py`, and CI checks that the result is reproducible.
-
-Pull request titles follow [Conventional Commits](https://www.conventionalcommits.org/), for example
-`feat: add a sustain pedal` or `fix: accept B#-7`, because pull requests are squash-merged and the title becomes the
-commit message that decides the next version. `feat` starts a minor release, `fix`, `perf` and `deps` a patch release,
-and a `!` (as in `feat!:`) or a `BREAKING CHANGE:` footer marks a breaking change. Other types (`docs`, `refactor`,
-`test`, `build`, `ci`, `chore`) don't start a release. A check on every pull request enforces the format.
-
-### Releasing
-
-[release-please](https://github.com/googleapis/release-please) keeps a release pull request open that bumps the
-version (`pyproject.toml`, `uv.lock`) and adds the changelog entry. Merging it tags the release, creates the GitHub
-release, runs the tests, attaches the built package and publishes it to PyPI with
-[trusted publishing](https://docs.pypi.org/trusted-publishers/) (no API token; the `pypi` environment of this
-repository). If a job of that run fails, "Re-run failed jobs" retries it for the same release; release-please creates
-each release only once, so a new run would not.
-
-## The bundled sound font
-
-`pypiano/sound_fonts/FluidR3_GM_pianos.sf2` (19 MB) holds the eight General MIDI pianos (bank 0, programs 0 to 7) of
-FluidR3_GM by Frank Wen, as packaged in Debian's
-[fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont). The full font is 148 MB with 189
-presets, of which PyPiano uses these eight. The pianos keep their stereo samples, and they sound exactly like the full
-font: rendering every piano at several notes gives byte-identical audio with both.
-
-The file is not hand-made. `scripts/build_sound_font.py` (`make soundfont`) builds it:
-
-1. it downloads Debian's source archive and verifies it against the checksum Debian publishes,
-2. it extracts `FluidR3_GM.sf2` and verifies its checksum,
-3. it cuts the presets listed in `scripts/sound_font_recipe.toml` out with
-   [sf2-cutter](https://github.com/FelixGSE/sf2-cutter), whose release is pinned and checksum-verified in
-   `.devcontainer/Dockerfile`,
-4. it verifies the result against the checksum in the script.
-
-The build is deterministic, so you can check the bundled file yourself:
-
-```bash
-make soundfont-check   # rebuild from Debian's archive and compare byte by byte with the bundled file
-sha256sum pypiano/sound_fonts/FluidR3_GM_pianos.sf2   # 6da99144bcf97b85d6e38c54006dcf0b22afba98d3515da0a37c29e833f92a51
-```
-
-CI runs `make soundfont-check` on every pull request, and a test checks that the file contains only the SoundFont 2
-chunks, exactly the eight pianos and the FluidR3 attribution. Releases come with signed build provenance for the
-package and the sound font:
-
-```bash
-gh attestation verify FluidR3_GM_pianos.sf2 --repo FelixGSE/pypiano
-gh attestation verify pypiano-0.2.0-py3-none-any.whl --repo FelixGSE/pypiano
-```
+Bug reports and pull requests are welcome. [CONTRIBUTING.md](https://github.com/FelixGSE/pypiano/blob/HEAD/CONTRIBUTING.md)
+explains the development setup, the checks and how releases work. Changes are listed in the
+[changelog](https://github.com/FelixGSE/pypiano/blob/HEAD/CHANGELOG.md).
 
 ## License
 
-PyPiano is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-See [LICENSE](LICENSE). Copyright (C) 2021-2026 FelixGSE.
+PyPiano is free software under the GNU General Public License, version 3 or later, like mingus, which it builds on. See
+[LICENSE](https://github.com/FelixGSE/pypiano/blob/HEAD/LICENSE). Copyright (C) 2021-2026 FelixGSE. Releases up to and
+including 0.1.2 were published under the MIT license.
 
-PyPiano builds on [mingus](https://github.com/bspaans/python-mingus), which is licensed under GPL-3.0-or-later as well.
-Releases up to and including 0.1.2 were published under the MIT license.
-
-The bundled sound font, a subset of FluidR3_GM, is distributed under the MIT license, see
-[licenses/LICENSE-FluidR3_GM_sf2.txt](licenses/LICENSE-FluidR3_GM_sf2.txt). The package metadata therefore declares the
-license expression `GPL-3.0-or-later AND MIT`.
+The included sound font is under the MIT license, see
+[LICENSE-FluidR3_GM_sf2.txt](https://github.com/FelixGSE/pypiano/blob/HEAD/licenses/LICENSE-FluidR3_GM_sf2.txt).
