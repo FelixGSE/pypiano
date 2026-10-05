@@ -31,12 +31,12 @@ from mingus.containers import Bar, Note
 
 # The with block releases FluidSynth when it ends; without it, call p.close() when done
 with Piano() as p:
-    # Play a simple C-4 via audio
+    # Play a simple C-4 via audio; play() returns when the note has sounded for a second
     p.play("C-4")
 
-    # Play a mingus Note, louder (velocity 0 to 127)
+    # Play a mingus Note for two seconds, louder (velocity 0 to 127)
     note = Note("C-4")
-    p.play(note, velocity=110)
+    p.play(note, duration=2, velocity=110)
 
     # Record a Note to a wav file
     p.record(note, "my_first_recording.wav", seconds=2)
@@ -50,15 +50,15 @@ with Piano() as p:
     # Use a different instrument; its name, "Honky-tonk Piano", works too
     p.load_instrument(Instrument.HONKY_TONK_PIANO)
     p.play(note)
-
-    # play() returns immediately for notes while they keep sounding, so keep a script running until they finish
-    p.pause(2)
 ```
 
 `play()` takes a note name, a key index from 0 (A-0) to 87 (C-8), a `PianoKey` from `p.keyboard`, or any mingus Note,
-NoteContainer, Bar or Track, and plays it through the audio output. `record()` takes the same and writes a wav file
-instead, with `seconds` of sound after the music. `velocity` sets how hard every note is struck, and `bpm` the tempo of
-bars and tracks.
+NoteContainer, Bar or Track, and plays it through the audio output. It returns when the music has finished: a note or
+chord sounds for `duration` seconds (1 by default), a Bar or Track as long as its notes take at `bpm`. The notes then
+fade out, unless the piano is closed right away. `velocity` sets how hard every note is struck.
+
+`record()` takes the same and writes a wav file instead, rendered faster than real time and without sound. Without
+`seconds` the recording ends when the fade has died away; with it, the recording is exactly that long.
 
 ### Note names
 

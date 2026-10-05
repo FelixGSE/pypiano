@@ -1,6 +1,8 @@
 """Property-based tests: rules that must hold for every input, checked against inputs Hypothesis generates."""
 
 import math
+import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -235,7 +237,8 @@ def test_piano_should_accept_bpm_exactly_when_it_is_positive_and_finite(bpm: flo
             piano.play(bar_of([Note("C-4")]), bpm=bpm)
 
 
-@given(st.floats(max_value=1e6) | st.integers(max_value=10**6))
+# Up to 10 seconds, because a recording is rendered, if only by the mocked sequencer
+@given(st.floats(max_value=10) | st.integers(max_value=10))
 @example(math.nan)
 @example(math.inf)
 @example(-math.inf)
@@ -245,9 +248,31 @@ def test_piano_should_accept_bpm_exactly_when_it_is_positive_and_finite(bpm: flo
 def test_piano_should_record_exactly_when_seconds_is_positive_and_finite(seconds: float) -> None:
     # Given any number as recording length
     piano, _ = make_piano()
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "c4.wav"
+        # When / Then
+        if math.isfinite(seconds) and seconds > 0:
+            piano.record("C-4", path, seconds=seconds)
+            assert path.exists()
+        else:
+            with pytest.raises(PlaybackOptionError):
+                piano.record("C-4", path, seconds=seconds)
+
+
+@given(st.floats() | st.integers())
+@example(math.nan)
+@example(math.inf)
+@example(-math.inf)
+@example(0)
+@example(-1)
+@example(0.25)
+def test_piano_should_play_exactly_when_duration_is_positive_and_finite(duration: float) -> None:
+    # Given any number as how long a note sounds
+    piano, sequencer = make_piano()
     # When / Then
-    if math.isfinite(seconds) and seconds > 0:
-        piano.record("C-4", "out.wav", seconds=seconds)
+    if math.isfinite(duration) and duration > 0:
+        piano.play("C-4", duration=duration)
+        sequencer.sleep.assert_called_once_with(duration)
     else:
         with pytest.raises(PlaybackOptionError):
-            piano.record("C-4", "out.wav", seconds=seconds)
+            piano.play("C-4", duration=duration)
