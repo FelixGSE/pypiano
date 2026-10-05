@@ -22,6 +22,7 @@ from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
 from pypiano._mingus_compat import CHANNEL_TYPE_MELODIC  # importing it also patches mingus (see its docstring)
+from pypiano._utils import note_name, notes_in
 from pypiano.errors import (
     AudioDriverError,
     InstrumentError,
@@ -35,7 +36,6 @@ from pypiano.errors import (
     UnsupportedContainerError,
 )
 from pypiano.keyboard import PianoKey, PianoKeyboard
-from pypiano.utils import note_name, notes_in
 
 # MIDI channel 10, which General MIDI reserves for drums; mingus counts channels from 0
 DRUM_CHANNEL = 9
@@ -95,10 +95,6 @@ class Instrument(StrEnum):
         """General MIDI program number, counted from 0."""
         return list(Instrument).index(self)
 
-
-# Program number by name, of the instruments the bundled sound font has. Derived from Instrument, which load_instrument
-# checks names against, so changing this dict changes nothing
-DEFAULT_INSTRUMENTS = {instrument.value: instrument.program for instrument in Instrument}
 
 # Sample rate fluidsynth renders at, used for wav recordings, and the size of one frame: 2 channels of 16-bit samples
 WAV_SAMPLE_FREQUENCY = 44100
@@ -400,7 +396,12 @@ class Piano:
             program = instrument
 
         self._sequencer.set_instrument(channel=PLAY_CHANNEL, instr=program, bank=0)
-        self.instrument = instrument
+        self._instrument = instrument
+
+    @property
+    def instrument(self) -> Instrument | int:
+        """The selected instrument, set by load_instrument: an Instrument, or a program number for other sound fonts."""
+        return self._instrument
 
     def play(
         self,

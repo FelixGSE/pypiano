@@ -1,8 +1,8 @@
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
 
+from pypiano._utils import note_name, notes_in
 from pypiano.errors import UnsupportedContainerError
-from pypiano.utils import note_name, notes_in
 
 
 def bar_with_rest() -> Bar:

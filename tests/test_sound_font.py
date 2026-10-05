@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from pypiano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS
+from pypiano import DEFAULT_SOUND_FONTS, Instrument
 
 BUILD_SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "build_sound_font.py"
 PIANO_PRESETS = [
@@ -93,7 +93,7 @@ def test_sound_font_should_contain_exactly_the_eight_pianos_when_parsed(
         presets.append((bank, program, name.split(b"\0")[0].decode("latin-1")))
     # When / Then (the file stores presets in no particular order)
     assert sorted(presets) == PIANO_PRESETS
-    assert sorted(DEFAULT_INSTRUMENTS.values()) == [program for _, program, _ in PIANO_PRESETS]
+    assert sorted(instrument.program for instrument in Instrument) == [program for _, program, _ in PIANO_PRESETS]
 
 
 def test_sound_font_should_keep_the_fluidr3_attribution_and_record_sf2_cutter_when_parsed(

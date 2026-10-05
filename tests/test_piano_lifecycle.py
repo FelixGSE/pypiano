@@ -7,8 +7,8 @@ from mingus.containers import Bar, Note, NoteContainer, Track
 
 from pypiano import errors
 from pypiano import piano as piano_module
+from pypiano._utils import notes_in
 from pypiano.piano import DEFAULT_SOUND_FONTS, Piano
-from pypiano.utils import notes_in
 
 
 def make_bar(*notes: str) -> Bar:
