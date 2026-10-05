@@ -6,8 +6,8 @@ from typing import Literal, NamedTuple, TypeAlias
 
 from mingus.containers import Note
 
+from pypiano._utils import note_name
 from pypiano.errors import InvalidKeyIndexError, UnknownNoteNameError
-from pypiano.utils import note_name
 
 
 class KeyColor(StrEnum):

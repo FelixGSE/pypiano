@@ -15,7 +15,7 @@ from mingus.containers.mt_exceptions import NoteFormatError
 from pypiano import errors
 from pypiano import piano as piano_module
 from pypiano.keyboard import PianoKey
-from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, Instrument, Piano
+from pypiano.piano import DEFAULT_SOUND_FONTS, Instrument, Piano
 
 OTHER_SOUND_FONTS = Path("/fantasypath/fantasyfile.sf2")
 
@@ -224,6 +224,15 @@ def test_piano_should_set_default_instrument_when_created(piano: Piano, sequence
     assert piano.instrument == "Acoustic Grand Piano"
 
 
+def test_piano_should_raise_attribute_error_when_the_instrument_is_assigned(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a piano playing the Acoustic Grand Piano
+    # When / Then the instrument can only change through load_instrument, which also selects it in FluidSynth
+    with pytest.raises(AttributeError):
+        piano.instrument = Instrument.CLAVI  # ty: ignore[invalid-assignment] - read-only on purpose
+    assert piano.instrument is Instrument.ACOUSTIC_GRAND_PIANO
+    sequencer.set_instrument.assert_called_once_with(channel=1, instr=0, bank=0)
+
+
 @pytest.mark.parametrize(
     ("instrument", "program"),
     [
@@ -241,7 +250,6 @@ def test_instrument_should_have_its_general_midi_program_number(instrument: Inst
     # Given a General MIDI piano
     # When / Then
     assert instrument.program == program
-    assert DEFAULT_INSTRUMENTS[instrument] == program
 
 
 @pytest.mark.parametrize("instrument", [Instrument.HONKY_TONK_PIANO, "Honky-tonk Piano"], ids=["enum", "name"])

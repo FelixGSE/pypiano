@@ -100,6 +100,9 @@ one also derives from the built-in exception it stands for, such as `ValueError`
 
 ### Good to know
 
+PyPiano's public API is what the `pypiano` package exports, for example `from pypiano import Piano, Instrument`. Its
+submodules are internal and can change between releases.
+
 Importing `pypiano` adjusts mingus' FluidSynth bindings (`mingus.midi.pyfluidsynth`) for the whole process: it finds
 Homebrew's FluidSynth on macOS, makes recording work with numpy 2.3 or newer, and accepts every audio driver of
 FluidSynth 2. Other code in the same process that uses these bindings gets the same changes.

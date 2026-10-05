@@ -11,10 +11,10 @@ from hypothesis import example, given
 from hypothesis import strategies as st
 from mingus.containers import Bar, Note, Track
 
+from pypiano._utils import note_name, notes_in
 from pypiano.errors import InvalidKeyIndexError, InvalidNoteError, PlaybackOptionError, UnknownNoteNameError
 from pypiano.keyboard import PianoKey, PianoKeyboard
 from pypiano.piano import Piano
-from pypiano.utils import note_name, notes_in
 
 KEYBOARD = PianoKeyboard()
 LOWEST, HIGHEST = int(Note("A-0")), int(Note("C-8"))
