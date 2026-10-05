@@ -5,7 +5,9 @@ from unittest.mock import MagicMock
 
 import pytest
 from mingus.containers import Bar, Note, NoteContainer, Track
+from mingus.containers.mt_exceptions import NoteFormatError
 
+from pypiano import errors
 from pypiano import piano as piano_module
 from pypiano.keyboard import PianoKey
 from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, Instrument, Piano
@@ -287,6 +289,45 @@ def test_piano_should_play_first_identity_when_given_key_index_or_piano_key(
     # Then
     (played,), _ = sequencer.play_Note.call_args
     assert f"{played.name}-{played.octave}" == expected_note
+
+
+def test_piano_should_play_octave_4_when_note_string_has_no_octave(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a note name without an octave, which mingus puts in octave 4
+    # When
+    piano.play("C")
+    # Then
+    (played,), _ = sequencer.play_Note.call_args
+    assert (played.name, played.octave) == ("C", 4)
+
+
+@pytest.mark.parametrize(
+    ("note_string", "mingus_error"),
+    [
+        ("H-4", NoteFormatError),
+        ("c-4", NoteFormatError),
+        (" C-4", NoteFormatError),
+        ("C-4-1", NoteFormatError),
+        ("C-x", ValueError),
+        ("C-", ValueError),
+        ("", IndexError),
+    ],
+    ids=["unknown letter", "lowercase", "leading space", "two dashes", "octave not a number", "no octave", "empty"],
+)
+def test_piano_should_raise_unparsable_note_error_when_note_string_is_not_a_note(
+    piano: Piano, sequencer: MagicMock, note_string: str, mingus_error: type[Exception]
+) -> None:
+    # Given a string mingus cannot parse into a note, which it rejects with one of three errors
+    # When / Then
+    with pytest.raises(
+        errors.UnparsableNoteError,
+        match=re.escape(f"Not a note name with an optional octave, such as 'C#-4' or 'Bb-2': {note_string!r}"),
+    ) as raised:
+        piano.play(note_string)
+    # It is an InvalidNoteError, and still mingus' NoteFormatError, which play() let through before
+    assert isinstance(raised.value, errors.InvalidNoteError)
+    assert isinstance(raised.value, NoteFormatError)
+    assert isinstance(raised.value.__cause__, mingus_error)
+    sequencer.play_Note.assert_not_called()
 
 
 @pytest.mark.parametrize("key_index", [-1, 88])

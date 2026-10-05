@@ -11,6 +11,7 @@ from types import TracebackType
 from typing import Literal, Self, TypeAlias
 
 from mingus.containers import Bar, Note, NoteContainer, Track
+from mingus.containers.mt_exceptions import NoteFormatError
 from mingus.midi import pyfluidsynth as globalfs
 from mingus.midi.fluidsynth import FluidSynthSequencer
 
@@ -24,6 +25,7 @@ from pypiano.errors import (
     PianoClosedError,
     PlaybackOptionError,
     SoundFontError,
+    UnparsableNoteError,
     UnsupportedContainerError,
 )
 from pypiano.keyboard import PianoKey, PianoKeyboard
@@ -354,7 +356,9 @@ class Piano:
         file.
 
         Args:
-            music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music
+            music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music, a key
+                index, a PianoKey, or a note string such as "C#-4". A note string without an octave, such as "C", is
+                in octave 4, mingus' default
             recording_file: Path to a wav file where audio should be saved to. If passed music_container will be
                 recorded
             record_seconds: The duration of recording in seconds
@@ -364,6 +368,8 @@ class Piano:
 
         Raises:
             InvalidNoteError: If the music container has notes that are not on a piano with 88 keys
+            UnparsableNoteError: If a note string is not a note name with an optional octave. It is an InvalidNoteError
+                and mingus' NoteFormatError
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
             AudioDriverError: If FluidSynth has no audio driver of the configured name
@@ -418,12 +424,19 @@ class Piano:
         mingus containers are returned unchanged.
 
         Raises:
+            UnparsableNoteError: If a note string is not a note name with an optional octave
             InvalidKeyIndexError: If a key index is outside 0 to 87
             UnsupportedContainerError: If the music container type is not supported
 
         """
         if isinstance(music_container, str):
-            return Note(music_container)
+            try:
+                return Note(music_container)
+            # mingus raises NoteFormatError for an unknown name, ValueError for an octave that is not a number, and
+            # IndexError for an empty string
+            except (NoteFormatError, ValueError, IndexError) as error:
+                msg = f"Not a note name with an optional octave, such as 'C#-4' or 'Bb-2': {music_container!r}"
+                raise UnparsableNoteError(msg) from error
         if isinstance(music_container, PianoKey):
             return music_container.first_note
         if isinstance(music_container, int):

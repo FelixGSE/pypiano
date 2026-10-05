@@ -2,8 +2,11 @@
 
 Every exception derives from PyPianoError, so `except PyPianoError` catches anything PyPiano raises on purpose. Each one
 also derives from the built-in exception PyPiano raised before, so existing `except ValueError` (or `IndexError`,
-`TypeError`, `RuntimeError`) clauses keep working.
+`TypeError`, `RuntimeError`) clauses keep working. UnparsableNoteError also derives from mingus' NoteFormatError, which
+play() let through for unparsable note strings before.
 """
+
+from mingus.containers.mt_exceptions import NoteFormatError
 
 
 class PyPianoError(Exception):
@@ -28,6 +31,10 @@ class InstrumentTypeError(PyPianoError, TypeError):
 
 class InvalidNoteError(PyPianoError, ValueError):
     """A note is not on a piano with 88 keys."""
+
+
+class UnparsableNoteError(InvalidNoteError, NoteFormatError):
+    """A note string is not a note name with an optional octave, such as "C#-4", "Bb-2" or "C"."""
 
 
 class UnknownNoteNameError(InvalidNoteError, IndexError):

@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from mingus.containers import Note
+from mingus.containers.mt_exceptions import NoteFormatError
 
 from pypiano import errors
 from pypiano.keyboard import PianoKeyboard
@@ -29,6 +30,8 @@ def unknown_audio_driver(piano: Piano) -> None:
     ("action", "error", "builtins"),
     [
         (lambda p: p.play(Note("G-0")), errors.InvalidNoteError, (ValueError,)),
+        # Not a built-in: mingus' error, which play() let through for unparsable note strings before
+        (lambda p: p.play("H-4"), errors.UnparsableNoteError, (ValueError, NoteFormatError)),
         (lambda p: p.play(88), errors.InvalidKeyIndexError, (ValueError, IndexError)),
         (lambda p: p.play(3.5), errors.UnsupportedContainerError, (TypeError,)),
         (lambda p: p.load_instrument("FantasyInstrument"), errors.InstrumentError, (ValueError,)),
@@ -42,6 +45,7 @@ def unknown_audio_driver(piano: Piano) -> None:
     ],
     ids=[
         "note outside the keyboard",
+        "unparsable note string",
         "key index outside 0-87",
         "unsupported container",
         "unknown instrument name",

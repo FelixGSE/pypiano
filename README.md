@@ -59,7 +59,8 @@ key index from 0 (A-0) to 87 (C-8), or a `PianoKey` from `p.keyboard`.
 Note names follow [scientific pitch notation](https://en.wikipedia.org/wiki/Scientific_pitch_notation), like mingus:
 octave numbers go up at C, so middle C is `C-4` and A-4 is 440 Hz. Every key can be addressed by either of its names,
 for example `C#-4` or `Db-4`. The octave boundary applies to enharmonic names too: `B#-3` is the same key as `C-4`, and
-`Cb-5` is the same key as `B-4`.
+`Cb-5` is the same key as `B-4`. `play()` also takes a name without an octave, such as `"C"`, and plays it in octave 4,
+mingus' default. A string that is not a note name raises `UnparsableNoteError`, an `InvalidNoteError`.
 
 Importing `pypiano` has two process-wide side effects: it loads the FluidSynth library through mingus (on macOS it
 also looks in Homebrew's lib directory), and it patches two functions of `mingus.midi.pyfluidsynth` so recording works
