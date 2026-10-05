@@ -338,7 +338,7 @@ def test_piano_should_raise_type_error_when_other_sound_fonts_get_an_unknown_ins
     ],
     ids=["note string", "note", "note container", "bar", "track"],
 )
-def test_piano_should_play_container_via_audio_when_no_recording_file_is_given(
+def test_piano_should_play_container_via_audio_when_played(
     piano: Piano, sequencer: MagicMock, music_container: MusicContainer, play_method: str
 ) -> None:
     # Given a piano and a valid music container
@@ -432,14 +432,12 @@ def recording_steps(sequencer: MagicMock) -> list[object]:
     return [step for step in sequencer.mock_calls if step[0] in steps]
 
 
-def test_piano_should_write_wav_file_between_silences_when_recording_file_is_given(
-    piano: Piano, sequencer: MagicMock
-) -> None:
+def test_piano_should_write_wav_file_between_silences_when_recording(piano: Piano, sequencer: MagicMock) -> None:
     # Given a piano with active audio output
     piano._start_audio_output()
     wav = sequencer.wav
     # When
-    piano.play("C-4", recording_file="test.wav", record_seconds=2)
+    piano.record("C-4", "test.wav", seconds=2)
     # Then all sound stops (and fades) before the recording starts and after it ends, so no note carries over
     (played,), _ = sequencer.play_Note.call_args
     assert recording_steps(sequencer) == [
@@ -466,7 +464,7 @@ def test_piano_should_close_and_remove_the_wav_when_recording_fails(piano: Piano
     wav = sequencer.wav
     # When / Then
     with pytest.raises(ZeroDivisionError):
-        piano.play(make_bar("C-4"), recording_file="test.wav")
+        piano.record(make_bar("C-4"), "test.wav")
     wav.writeframes.assert_not_called()
     wav.close.assert_called_once_with()
     assert not hasattr(sequencer, "wav")
@@ -533,15 +531,15 @@ def test_piano_should_sleep_when_paused(monkeypatch: pytest.MonkeyPatch) -> None
     sleep.assert_called_once_with(2)
 
 
-def test_piano_should_record_to_path_when_recording_file_is_a_path(
+def test_piano_should_record_to_path_when_path_is_a_pathlib_path(
     piano: Piano, sequencer: MagicMock, tmp_path: Path
 ) -> None:
     # Given a recording file as a pathlib.Path
-    recording_file = tmp_path / "c4.wav"
+    path = tmp_path / "c4.wav"
     # When
-    piano.play("C-4", recording_file=recording_file, record_seconds=0.5)
+    piano.record("C-4", path, seconds=0.5)
     # Then
-    sequencer.start_recording.assert_called_once_with(str(recording_file))
+    sequencer.start_recording.assert_called_once_with(str(path))
     assert call(int(0.5 * piano_module.WAV_SAMPLE_FREQUENCY)) in sequencer.fs.get_samples.call_args_list
 
 

@@ -35,7 +35,7 @@ def main() -> None:
         piano.play(args.note)
         piano.pause(PLAY_SECONDS)
     else:
-        piano.play(args.note, recording_file=str(args.output), record_seconds=args.seconds)
+        piano.record(args.note, args.output, seconds=args.seconds)
         logger.info("Recorded %s on %s to %s", args.note, args.instrument, args.output.resolve())
 
 

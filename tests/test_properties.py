@@ -242,12 +242,12 @@ def test_piano_should_accept_bpm_exactly_when_it_is_positive_and_finite(bpm: flo
 @example(0)
 @example(-1)
 @example(0.5)
-def test_piano_should_accept_record_seconds_exactly_when_positive_and_finite(record_seconds: float) -> None:
+def test_piano_should_record_exactly_when_seconds_is_positive_and_finite(seconds: float) -> None:
     # Given any number as recording length
     piano, _ = make_piano()
     # When / Then
-    if math.isfinite(record_seconds) and record_seconds > 0:
-        piano.play("C-4", recording_file="out.wav", record_seconds=record_seconds)
+    if math.isfinite(seconds) and seconds > 0:
+        piano.record("C-4", "out.wav", seconds=seconds)
     else:
         with pytest.raises(PlaybackOptionError):
-            piano.play("C-4", recording_file="out.wav", record_seconds=record_seconds)
+            piano.record("C-4", "out.wav", seconds=seconds)

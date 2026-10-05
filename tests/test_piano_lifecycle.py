@@ -90,10 +90,11 @@ def test_piano_should_close_when_leaving_a_with_block(piano: Piano, delete_synth
     "action",
     [
         lambda p: p.play("C-4"),
+        lambda p: p.record("C-4", "out.wav"),
         lambda p: p.load_sound_fonts(DEFAULT_SOUND_FONTS),
         lambda p: p.load_instrument("Clavi"),
     ],
-    ids=["play", "load sound fonts", "load instrument"],
+    ids=["play", "record", "load sound fonts", "load instrument"],
 )
 def test_piano_should_raise_piano_closed_error_when_used_after_close(
     piano: Piano, action: Callable[[Piano], object]
@@ -254,9 +255,9 @@ def test_piano_should_start_the_configured_audio_driver_when_playing(sequencer: 
 
 
 def test_piano_should_record_four_seconds_when_no_recording_length_is_given(piano: Piano, sequencer: MagicMock) -> None:
-    # Given a recording without record_seconds
+    # Given a recording without seconds
     # When
-    piano.play("C-4", recording_file="out.wav")
+    piano.record("C-4", "out.wav")
     # Then
     assert call(4 * piano_module.WAV_SAMPLE_FREQUENCY) in sequencer.fs.get_samples.call_args_list
 
@@ -267,23 +268,34 @@ def test_piano_should_write_the_rendered_samples_when_recording(piano: Piano, se
     sequencer.fs.get_samples.return_value = rendered
     wav = sequencer.wav
     # When
-    piano.play("C-4", recording_file="out.wav", record_seconds=1)
+    piano.record("C-4", "out.wav", seconds=1)
     # Then
     wav.writeframes.assert_called_once_with(rendered.tobytes())
+
+
+def test_piano_should_record_a_copy_at_the_velocity_when_velocity_is_given(piano: Piano, sequencer: MagicMock) -> None:
+    # Given a note with mingus' default velocity
+    note = Note("C-4")
+    # When
+    piano.record(note, "out.wav", velocity=80)
+    # Then
+    ((played,), _) = sequencer.play_Note.call_args
+    assert played.velocity == 80
+    assert note.velocity == 64
 
 
 def test_piano_should_pass_bpm_when_recording_a_bar(piano: Piano, sequencer: MagicMock) -> None:
     # Given a bar
     bar = make_bar("C-4", "E-4")
     # When
-    piano.play(bar, recording_file="out.wav", record_seconds=1, bpm=90)
+    piano.record(bar, "out.wav", seconds=1, bpm=90)
     # Then
     sequencer.play_Bar.assert_called_once_with(bar, bpm=90)
 
 
-@pytest.mark.parametrize("name", ["bpm", "record_seconds"])
+@pytest.mark.parametrize("name", ["bpm", "seconds"])
 def test_piano_should_name_the_option_when_a_playback_option_is_invalid(piano: Piano, name: str) -> None:
     # Given an invalid value for one option
     # When / Then
     with pytest.raises(errors.PlaybackOptionError, match=f"^{name} must be a positive finite number. Got 0$"):
-        piano.play("C-4", recording_file="out.wav", **{name: 0})
+        piano.record("C-4", "out.wav", **{name: 0})

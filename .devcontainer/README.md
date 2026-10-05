@@ -55,5 +55,5 @@ Alternatively set `GH_TOKEN` in your environment and forward it via `remoteEnv`.
 ## Audio
 
 There is no sound device inside the container. Recording to `.wav` works
-(`Piano.play(..., recording_file=...)`); live playback via `p.play(...)` will not produce sound.
+(`Piano.record(...)`); live playback via `p.play(...)` will not produce sound.
 On a Linux host you can pass through `--device=/dev/snd` in `runArgs` if needed.

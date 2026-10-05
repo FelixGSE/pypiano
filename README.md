@@ -39,7 +39,7 @@ with Piano() as p:
     p.play(note, velocity=110)
 
     # Record a Note to a wav file
-    p.play(note, recording_file="my_first_recording.wav", record_seconds=2)
+    p.record(note, "my_first_recording.wav", seconds=2)
 
     # Play a Bar at a given tempo
     bar = Bar()
@@ -56,8 +56,9 @@ with Piano() as p:
 ```
 
 `play()` takes a note name, a key index from 0 (A-0) to 87 (C-8), a `PianoKey` from `p.keyboard`, or any mingus Note,
-NoteContainer, Bar or Track. Without `recording_file` it plays through the audio output; with it, it writes a wav file
-of `record_seconds` seconds. `velocity` sets how hard every note is struck, and `bpm` the tempo of bars and tracks.
+NoteContainer, Bar or Track, and plays it through the audio output. `record()` takes the same and writes a wav file
+instead, with `seconds` of sound after the music. `velocity` sets how hard every note is struck, and `bpm` the tempo of
+bars and tracks.
 
 ### Note names
 
