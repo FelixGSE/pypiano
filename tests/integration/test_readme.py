@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.integration.test_audio import read_wav
+from tests.integration.test_audio import AUDIBLE_PEAK, read_wav
 
 pytestmark = pytest.mark.integration
 
@@ -38,4 +38,4 @@ def test_readme_example_should_run_and_record_when_executed(tmp_path: Path) -> N
     assert "No preset found" not in result.stderr
     frames, peak = read_wav(tmp_path / "my_first_recording.wav")
     assert frames == 2 * 44100
-    assert peak > 0
+    assert peak > AUDIBLE_PEAK

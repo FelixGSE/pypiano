@@ -31,7 +31,7 @@ def test_piano_should_create_a_fluidsynth_sequencer_when_none_is_given(
     Piano()
     # Then
     sequencer_class.assert_called_once_with()
-    sequencer.load_sound_font.assert_called_once_with(str(DEFAULT_SOUND_FONTS))
+    sequencer.fs.sfload.assert_called_once_with(str(DEFAULT_SOUND_FONTS))
 
 
 def test_piano_should_use_the_given_sequencer_when_one_is_passed(piano: Piano, sequencer: MagicMock) -> None:
@@ -175,13 +175,57 @@ def test_piano_should_play_a_copy_with_every_note_at_the_velocity_when_velocity_
     assert [note.velocity for note in notes_in(container)] == original_velocities
 
 
-def test_piano_should_play_the_container_itself_when_no_velocity_is_given(piano: Piano, sequencer: MagicMock) -> None:
-    # Given a note
-    note = Note("C-4")
+@pytest.mark.parametrize(
+    ("container", "method"),
+    [
+        (Note("C-4"), "play_Note"),
+        (NoteContainer(["C-4", "E-4"]), "play_NoteContainer"),
+        (make_bar("C-4", "E-4"), "play_Bar"),
+        (Track().add_bar(make_bar("C-4", "E-4")), "play_Track"),
+    ],
+    ids=["note", "note container", "bar", "track"],
+)
+def test_piano_should_play_the_container_itself_when_no_velocity_is_given_and_notes_are_on_channel_1(
+    piano: Piano, sequencer: MagicMock, container: Note | NoteContainer | Bar | Track, method: str
+) -> None:
+    # Given a container whose notes are on mingus' default channel 1
     # When
-    piano.play(note)
-    # Then
-    sequencer.play_Note.assert_called_once_with(note)
+    piano.play(container)
+    # Then it is played as it is, not a copy (mingus' containers compare equal to their copies, hence "is")
+    ((played, *_), _) = getattr(sequencer, method).call_args
+    assert played is container
+
+
+def bar_of(*notes: Note) -> Bar:
+    bar = Bar()
+    for note in notes:
+        bar.place_notes(note, 4)
+    return bar
+
+
+@pytest.mark.parametrize(
+    ("container", "method"),
+    [
+        (Note("C-4", channel=2), "play_Note"),
+        (NoteContainer([Note("C-4"), Note("E-4", channel=9)]), "play_NoteContainer"),
+        (bar_of(Note("C-4", channel=0), Note("E-4")), "play_Bar"),
+        (Track().add_bar(bar_of(Note("C-4"), Note("E-4", channel=15))), "play_Track"),
+    ],
+    ids=["note", "note container", "bar", "track"],
+)
+def test_piano_should_play_a_copy_with_every_note_on_channel_1_when_notes_are_on_other_channels(
+    piano: Piano, sequencer: MagicMock, container: Note | NoteContainer | Bar | Track, method: str
+) -> None:
+    # Given a container with a note on another channel, where no instrument is selected
+    original_channels = [note.channel for note in notes_in(container)]
+    # When
+    piano.play(container)
+    # Then a copy plays every note on channel 1, with each note's own velocity, and the caller's notes keep theirs
+    ((played, *_), _) = getattr(sequencer, method).call_args
+    assert played is not container
+    assert [note.channel for note in notes_in(played)] == [1] * len(original_channels)
+    assert [note.velocity for note in notes_in(played)] == [64] * len(original_channels)
+    assert [note.channel for note in notes_in(container)] == original_channels
 
 
 @pytest.mark.parametrize("velocity", [-1, 128])
@@ -214,7 +258,7 @@ def test_piano_should_record_four_seconds_when_no_recording_length_is_given(pian
     # When
     piano.play("C-4", recording_file="out.wav")
     # Then
-    sequencer.fs.get_samples.assert_called_once_with(4 * piano_module.WAV_SAMPLE_FREQUENCY)
+    assert call(4 * piano_module.WAV_SAMPLE_FREQUENCY) in sequencer.fs.get_samples.call_args_list
 
 
 def test_piano_should_write_the_rendered_samples_when_recording(piano: Piano, sequencer: MagicMock) -> None:

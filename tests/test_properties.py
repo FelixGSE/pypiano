@@ -23,13 +23,14 @@ ALL_ACCIDENTALS = (*SINGLE_ACCIDENTALS, "##", "bb")
 
 
 def notes(accidentals: tuple[str, ...]) -> st.SearchStrategy[Note]:
-    """Notes with the given accidentals in octaves 0 to 9, partly outside the 88 keys."""
+    """Notes with the given accidentals in octaves 0 to 9, partly outside the 88 keys, on any MIDI channel."""
     return st.builds(
         Note,
         st.builds(
             lambda letter, accidental: letter + accidental, st.sampled_from(LETTERS), st.sampled_from(accidentals)
         ),
         st.integers(min_value=0, max_value=9),
+        channel=st.integers(min_value=0, max_value=15),
     )
 
 
@@ -40,7 +41,7 @@ def on_keyboard(note: Note) -> bool:
 def make_piano() -> tuple[Piano, MagicMock]:
     # Created per example, because Hypothesis runs each test many times and pytest fixtures run once per test
     sequencer = MagicMock(name="FluidSynthSequencer()")
-    sequencer.load_sound_font.return_value = True
+    sequencer.fs.sfload.return_value = 1
     sequencer.fs.get_samples.return_value = np.zeros(8, dtype=np.int16)
     return Piano(sequencer=sequencer), sequencer
 
@@ -163,6 +164,20 @@ def test_piano_should_play_a_string_or_raise_invalid_note_error_when_given_any_t
         sequencer.play_Note.assert_not_called()
     else:
         sequencer.play_Note.assert_called_once()
+
+
+@given(notes(SINGLE_ACCIDENTALS).filter(on_keyboard))
+def test_piano_should_play_every_note_on_channel_1_and_leave_the_callers_note_as_it_is(note: Note) -> None:
+    # Given a note on any MIDI channel; the instrument is only selected on channel 1
+    piano, sequencer = make_piano()
+    channel = note.channel
+    # When
+    piano.play(note)
+    # Then
+    ((played,), _) = sequencer.play_Note.call_args
+    assert played.channel == 1
+    assert int(played) == int(note)
+    assert note.channel == channel
 
 
 @given(st.integers())

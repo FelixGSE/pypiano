@@ -5,11 +5,15 @@ import wave
 from pathlib import Path
 
 import pytest
-from mingus.containers import Bar
+from mingus.containers import Bar, Note
 
-from pypiano import Piano
+from pypiano import DEFAULT_SOUND_FONTS, Piano, SoundFontError
 
 pytestmark = pytest.mark.integration
+
+# FluidSynth dithers its 16-bit output, so even silence peaks at 1; a soft C-4 (velocity 30) peaks at about 130
+SILENCE_PEAK = 1
+AUDIBLE_PEAK = 50
 
 
 def read_wav(path: Path) -> tuple[int, int]:
@@ -17,6 +21,12 @@ def read_wav(path: Path) -> tuple[int, int]:
     with wave.open(str(path)) as wav:
         samples = array.array("h", wav.readframes(wav.getnframes()))
         return wav.getnframes(), max(map(abs, samples))
+
+
+def read_frames(path: Path) -> bytes:
+    """Return the audio of a wav file."""
+    with wave.open(str(path)) as wav:
+        return wav.readframes(wav.getnframes())
 
 
 def make_bar(*notes: str) -> Bar:
@@ -35,7 +45,7 @@ def test_piano_should_record_audible_note_when_recording_to_a_file(tmp_path: Pat
     # Then
     frames, peak = read_wav(recording)
     assert frames == 44100
-    assert peak > 0
+    assert peak > AUDIBLE_PEAK
 
 
 def test_piano_should_record_a_longer_bar_when_tempo_is_slower(tmp_path: Path) -> None:
@@ -48,8 +58,8 @@ def test_piano_should_record_a_longer_bar_when_tempo_is_slower(tmp_path: Path) -
     # Then
     (slow_frames, slow_peak), (fast_frames, fast_peak) = read_wav(slow), read_wav(fast)
     assert slow_frames > fast_frames
-    assert slow_peak > 0
-    assert fast_peak > 0
+    assert slow_peak > AUDIBLE_PEAK
+    assert fast_peak > AUDIBLE_PEAK
 
 
 def test_piano_should_record_louder_note_when_velocity_is_higher(tmp_path: Path) -> None:
@@ -60,7 +70,62 @@ def test_piano_should_record_louder_note_when_velocity_is_higher(tmp_path: Path)
         piano.play("C-4", recording_file=soft, record_seconds=1, velocity=30)
         piano.play("C-4", recording_file=loud, record_seconds=1, velocity=127)
     # Then
-    assert read_wav(loud)[1] > read_wav(soft)[1] > 0
+    assert read_wav(loud)[1] > read_wav(soft)[1] > AUDIBLE_PEAK
+
+
+def test_piano_should_record_silence_when_a_loud_recording_came_before(tmp_path: Path) -> None:
+    # Given a loud recording, whose note and reverb would still sound when it ends
+    loud, silent = tmp_path / "loud.wav", tmp_path / "silent.wav"
+    # When the same piano records a note at velocity 0 next
+    with Piano() as piano:
+        piano.play("C-4", recording_file=loud, record_seconds=1, velocity=127)
+        piano.play("C-4", recording_file=silent, record_seconds=1, velocity=0)
+    # Then nothing of the loud recording carries over
+    assert read_wav(silent)[1] <= SILENCE_PEAK
+
+
+def test_piano_should_record_audibly_when_sound_fonts_were_loaded_again(tmp_path: Path) -> None:
+    # Given a piano whose sound fonts are replaced, here by the same file, and a piano that kept them
+    reloaded, kept = tmp_path / "reloaded.wav", tmp_path / "kept.wav"
+    # When both record the same note on the Clavi
+    with Piano(instrument="Clavi") as piano:
+        piano.load_sound_fonts(DEFAULT_SOUND_FONTS)
+        piano.play("C-4", recording_file=reloaded, record_seconds=1)
+    with Piano(instrument="Clavi") as piano:
+        piano.play("C-4", recording_file=kept, record_seconds=1)
+    # Then the reloaded piano still plays the Clavi
+    assert read_wav(reloaded)[1] > AUDIBLE_PEAK
+    assert read_frames(reloaded) == read_frames(kept)
+
+
+def test_piano_should_keep_playing_its_sound_fonts_when_new_ones_cannot_be_loaded(tmp_path: Path) -> None:
+    # Given a piano playing the Clavi, and a sound font file that doesn't exist
+    after_failure, unchanged = tmp_path / "after_failure.wav", tmp_path / "unchanged.wav"
+    # When loading it fails, and the piano records afterwards
+    with Piano(instrument="Clavi") as piano:
+        with pytest.raises(SoundFontError):
+            piano.load_sound_fonts(tmp_path / "missing.sf2")
+        piano.play("C-4", recording_file=after_failure, record_seconds=1)
+        instrument = piano.instrument
+    with Piano(instrument="Clavi") as piano:
+        piano.play("C-4", recording_file=unchanged, record_seconds=1)
+    # Then it plays the Clavi of the sound fonts it had
+    assert instrument == "Clavi"
+    assert read_frames(after_failure) == read_frames(unchanged)
+
+
+@pytest.mark.parametrize("channel", [0, 2, 9])
+def test_piano_should_play_the_instrument_when_a_note_is_on_another_channel(tmp_path: Path, channel: int) -> None:
+    # Given a C-4 on another channel than 1, where no instrument is selected, and one on channel 1
+    other, first = tmp_path / "other.wav", tmp_path / "first.wav"
+    # When both are recorded on the Clavi
+    with Piano(instrument="Clavi") as piano:
+        piano.play(Note("C-4", channel=channel), recording_file=other, record_seconds=1)
+    with Piano(instrument="Clavi") as piano:
+        piano.play(Note("C-4"), recording_file=first, record_seconds=1)
+    # Then both sound the same
+    assert read_wav(other)[1] > AUDIBLE_PEAK
+    assert read_frames(other) == read_frames(first)
 
 
 def test_piano_should_play_through_a_driver_mingus_does_not_know_when_fluidsynth_has_it(

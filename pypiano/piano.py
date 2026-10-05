@@ -33,6 +33,10 @@ from pypiano.utils import note_name, notes_in
 
 # MIDI channel 10, which General MIDI reserves for drums; mingus counts channels from 0
 DRUM_CHANNEL = 9
+# The channel PyPiano selects the instrument on and plays every note on, mingus' default channel
+PLAY_CHANNEL = 1
+# MIDI control change "All Sound Off": silences every voice of a channel at once, without a release
+ALL_SOUND_OFF = 120
 
 DEFAULT_SOUND_FONTS = Path(str(files("pypiano") / "sound_fonts" / "FluidR3_GM_pianos.sf2"))
 
@@ -90,6 +94,11 @@ DEFAULT_INSTRUMENTS = {instrument.value: instrument.program for instrument in In
 
 # Sample rate fluidsynth renders at, used for wav recordings
 WAV_SAMPLE_FREQUENCY = 44100
+# FluidSynth dithers its 16-bit output, so even silence peaks at 1
+SILENCE_PEAK = 1
+# While stopped voices and the reverb fade, FluidSynth renders 10 ms at a time (441 frames), for at most 5 seconds
+FADE_CHUNK_FRAMES = 441
+MAX_FADE_SECONDS = 5
 
 # Range of MIDI velocities and mingus' default tempo for bars and tracks
 MAX_VELOCITY = 127
@@ -159,7 +168,8 @@ class Piano:
         self._sound_fonts_loaded = False  # pragma: no mutate
         # Whether the loaded sound fonts are PyPiano's default ones, which take instrument names instead of numbers
         self._uses_default_sound_fonts = False  # pragma: no mutate
-        self.load_sound_fonts(sound_fonts_path)
+        # Without load_sound_fonts' re-selection of the instrument, which is selected below
+        self._load_sound_fonts(sound_fonts_path)
 
         # Audio output is lazily loaded when self.play method is called the first time without recording
         self._current_audio_driver = audio_driver
@@ -210,16 +220,43 @@ class Piano:
             raise PianoClosedError(msg)
 
     def load_sound_fonts(self, sound_fonts_path: str | Path) -> None:
-        """Load sound fonts from a given path."""
+        """Replace the loaded sound fonts with those from a given path.
+
+        The instrument stays selected if the new sound fonts take it: an Instrument always, a program number only if
+        they are not the default ones. Otherwise Instrument.ACOUSTIC_GRAND_PIANO (program 0) is selected. If the new
+        sound fonts cannot be loaded, the loaded ones and the instrument stay in use.
+
+        Raises:
+            SoundFontError: If FluidSynth cannot load the sound fonts
+            PianoClosedError: If the piano was closed
+
+        """
         self._ensure_open()
+        self._load_sound_fonts(sound_fonts_path)
+        # Channels keep pointing to the unloaded sound fonts, so they play nothing until an instrument is selected again
+        try:
+            self.load_instrument(self.instrument)
+        except (InstrumentError, InstrumentTypeError):
+            self.load_instrument(Instrument.ACOUSTIC_GRAND_PIANO)
+
+    def _load_sound_fonts(self, sound_fonts_path: str | Path) -> None:
+        """Load sound fonts and unload the previous ones, which stay loaded if the new ones fail to load.
+
+        Raises:
+            SoundFontError: If FluidSynth cannot load the sound fonts
+
+        """
         logger.debug("Attempting to load sound fonts from %s", sound_fonts_path)  # pragma: no mutate
 
-        if self._sound_fonts_loaded:
-            self._unload_sound_fonts()
-
-        if not self._sequencer.load_sound_font(str(sound_fonts_path)):
+        # Through FluidSynth directly, because mingus' load_sound_font replaces the id of the loaded sound fonts with -1
+        # when loading fails
+        sfid = self._sequencer.fs.sfload(str(sound_fonts_path))
+        if sfid == -1:
             msg = f"Could not load sound fonts from {sound_fonts_path}"
             raise SoundFontError(msg)
+        if self._sound_fonts_loaded:
+            self._sequencer.fs.sfunload(self._sequencer.sfid)
+        self._sequencer.sfid = sfid
 
         self._sound_fonts_loaded = True
         self._sound_fonts_path = Path(sound_fonts_path)
@@ -260,6 +297,13 @@ class Piano:
             raise AudioDriverError(msg)
         if not self._audio_driver_is_active:
             self._sequencer.start_audio_output(self._current_audio_driver)
+            if self._sequencer.fs.audio_driver is None:
+                # FluidSynth logged why, e.g. there is no sound device. Notes play unheard; the next play tries again
+                logger.warning(
+                    "FluidSynth could not start the %s audio driver, so nothing is heard. The next play tries again",
+                    driver or "default",
+                )
+                return
             # It seems to be necessary to reset the program after starting audio output
             # mingus.midi.pyfluidsynth.program_reset() is calling fluidsynth fluid_synth_program_reset()
             # https://www.fluidsynth.org/api/group__midi__messages.html#ga8a0e442b5013876affc685b88a6e3f49
@@ -341,7 +385,7 @@ class Piano:
         else:
             program = instrument
 
-        self._sequencer.set_instrument(channel=1, instr=program, bank=0)
+        self._sequencer.set_instrument(channel=PLAY_CHANNEL, instr=program, bank=0)
         self.instrument = instrument
 
     def play(
@@ -358,6 +402,9 @@ class Piano:
         Central user facing method of Piano class to play or record a given music container. Handles setting
         up audio output or recording to audio file and handles switching between playing audio and recording to wav
         file.
+
+        Every note plays on channel 1, where the instrument is selected, whatever channel its Note has. A recording
+        starts and ends in silence: notes still sounding before it or at its end are stopped and faded out.
 
         Args:
             music_container: A music container such as Notes, NoteContainers, etc. describing a piece of music, a key
@@ -386,8 +433,7 @@ class Piano:
         self._check_playback_options(bpm=bpm, velocity=velocity, record_seconds=record_seconds)
         container = self._normalize(music_container)
         self._validate(container)
-        if velocity is not None:
-            container = self._with_velocity(container, velocity)
+        container = self._for_playback(container, velocity)
 
         if recording_file is None:
             logger.debug("Playing music container: %s via audio", container)  # pragma: no mutate
@@ -397,27 +443,33 @@ class Piano:
         else:
             logger.debug("Recording music container: %s to file %s", container, recording_file)  # pragma: no mutate
             self._stop_audio_output()
+            # Without audio output FluidSynth renders only while recording, so notes still sounding from before would
+            # carry over into the file
+            self._stop_sounds()
             self._sequencer.start_recording(str(recording_file))
-            self._play_container(container, bpm)
-
-            samples = globalfs.raw_audio_string(
-                self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
-            )
-            self._sequencer.wav.writeframes(bytes(samples))
-
-            self._sequencer.wav.close()
-
-            # It seems we have to delete the wav attribute after recording in order to enable switching between
-            # audio output and recording for all music containers. The
-            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Bar and
-            # mingus.midi.fluidsynth.FluidSynthSequencer.play_Track use the
-            # mingus.midi.fluidsynth.FluidSynthSequencer.sleep methods internally which is for some reason also used
-            # to record in mingus.
-            # See also my issue in the mingus repository: https://github.com/bspaans/python-mingus/issues/77
-            # When wav attribute is present sleep tries to write to the wave file and if not the method just sleeps.
-            # If we do not delete the wav attribute it is still there as None and play_Bar tries to write to the file
-            # resulting in AttributeError: 'NoneType' object has no attribute 'write'
-            delattr(self._sequencer, "wav")
+            try:
+                self._play_container(container, bpm)
+                samples = globalfs.raw_audio_string(
+                    self._sequencer.fs.get_samples(int(record_seconds * WAV_SAMPLE_FREQUENCY)),
+                )
+                self._sequencer.wav.writeframes(bytes(samples))
+            finally:
+                wav = self._sequencer.wav
+                # It seems we have to delete the wav attribute after recording in order to enable switching between
+                # audio output and recording for all music containers. The
+                # mingus.midi.fluidsynth.FluidSynthSequencer.play_Bar and
+                # mingus.midi.fluidsynth.FluidSynthSequencer.play_Track use the
+                # mingus.midi.fluidsynth.FluidSynthSequencer.sleep methods internally which is for some reason also
+                # used to record in mingus.
+                # See also my issue in the mingus repository: https://github.com/bspaans/python-mingus/issues/77
+                # When wav attribute is present sleep tries to write to the wave file and if not the method just
+                # sleeps. If we do not delete the wav attribute it is still there as None and play_Bar tries to write
+                # to the file resulting in AttributeError: 'NoneType' object has no attribute 'write'.
+                # Deleted first, so even a failing close leaves no wav behind for the next play
+                delattr(self._sequencer, "wav")
+                # Notes still sounding at the end would carry over into the next recording, or play aloud afterwards
+                self._stop_sounds()
+                wav.close()
 
             logger.debug("Finished recording to %s", recording_file)  # pragma: no mutate
 
@@ -493,18 +545,37 @@ class Piano:
             raise InvalidNoteError(msg)
 
     @staticmethod
-    def _with_velocity(container: MusicContainer, velocity: int) -> MusicContainer:
-        """Return a copy of the music container with every note set to the velocity.
+    def _for_playback(container: MusicContainer, velocity: int | None) -> MusicContainer:
+        """Return the music container, or a copy whose notes all play on PLAY_CHANNEL and, if given, at the velocity.
 
-        mingus plays each note with the velocity stored on the Note, which overrides the velocity argument of its play
-        methods, and Bars and Tracks take no velocity at all. Setting it on a copy covers every container type without
-        changing the caller's notes.
+        mingus plays each note with the channel and velocity stored on the Note, which override the arguments of its
+        play methods, and Bars and Tracks take no velocity at all. The instrument is only selected on PLAY_CHANNEL, so
+        notes on other channels would be silent or play another instrument. Setting both on a copy covers every
+        container type without changing the caller's notes; a container that needs no change is played as it is.
 
         """
+        if velocity is None and all(note.channel == PLAY_CHANNEL for note in notes_in(container)):
+            return container
         container = copy.deepcopy(container)
         for note in notes_in(container):
-            note.velocity = velocity
+            note.channel = PLAY_CHANNEL
+            if velocity is not None:
+                note.velocity = velocity
         return container
+
+    def _stop_sounds(self) -> None:
+        """Stop every voice on PLAY_CHANNEL and let the sound fade, so nothing from before carries over.
+
+        Without audio output FluidSynth only advances while samples are rendered, so the stopped voices' fade and the
+        reverb tail would otherwise sound at the start of the next recording, or once audio output starts. They are
+        rendered away instead, until FluidSynth is silent, for at most MAX_FADE_SECONDS.
+        """
+        synth = self._sequencer.fs
+        synth.cc(PLAY_CHANNEL, ALL_SOUND_OFF, 0)
+        for _ in range(MAX_FADE_SECONDS * WAV_SAMPLE_FREQUENCY // FADE_CHUNK_FRAMES):
+            samples = synth.get_samples(FADE_CHUNK_FRAMES)
+            if samples.min() >= -SILENCE_PEAK and samples.max() <= SILENCE_PEAK:
+                return
 
     def _play_container(self, container: MusicContainer, bpm: float) -> None:
         """Play a music container with the mingus sequencer method for its type (or the closest base type)."""
