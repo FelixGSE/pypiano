@@ -33,7 +33,11 @@ def unknown_audio_driver(piano: Piano) -> None:
         (lambda p: p.play(3.5), errors.UnsupportedContainerError, (TypeError,)),
         (lambda p: p.load_instrument("FantasyInstrument"), errors.InstrumentError, (ValueError,)),
         (lambda p: p.load_instrument(1), errors.InstrumentTypeError, (TypeError,)),
-        (load_other_sound_fonts_then(lambda p: p.load_instrument("Clavi")), errors.InstrumentTypeError, (TypeError,)),
+        (
+            load_other_sound_fonts_then(lambda p: p.load_instrument("FantasyInstrument")),
+            errors.InstrumentTypeError,
+            (TypeError,),
+        ),
         (unknown_audio_driver, errors.AudioDriverError, (ValueError,)),
     ],
     ids=[
@@ -42,7 +46,7 @@ def unknown_audio_driver(piano: Piano) -> None:
         "unsupported container",
         "unknown instrument name",
         "instrument number with default sound font",
-        "instrument name with other sound font",
+        "unknown instrument name with other sound font",
         "unknown audio driver",
     ],
 )

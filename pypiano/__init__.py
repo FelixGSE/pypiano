@@ -17,8 +17,8 @@ from pypiano.errors import (
     UnknownNoteNameError,
     UnsupportedContainerError,
 )
-from pypiano.keyboard import PianoKey, PianoKeyboard
-from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, AudioDriver, Piano
+from pypiano.keyboard import KeyColor, NoteIdentity, PianoKey, PianoKeyboard
+from pypiano.piano import DEFAULT_INSTRUMENTS, DEFAULT_SOUND_FONTS, AudioDriver, Instrument, Piano
 
 __version__ = version("pypiano")
 
@@ -27,10 +27,13 @@ __all__ = [
     "DEFAULT_SOUND_FONTS",
     "AudioDriver",
     "AudioDriverError",
+    "Instrument",
     "InstrumentError",
     "InstrumentTypeError",
     "InvalidKeyIndexError",
     "InvalidNoteError",
+    "KeyColor",
+    "NoteIdentity",
     "Piano",
     "PianoClosedError",
     "PianoKey",
