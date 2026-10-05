@@ -105,10 +105,10 @@ FluidSynth 2. Other code in the same process that uses these bindings gets the s
 
 ## The included sound font
 
-PyPiano includes the eight pianos of FluidR3_GM by Frank Wen, taken from Debian's
-[fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont) package: 19 MB instead of the full font's
-148 MB, and they sound the same. How the file is built from Debian's package is described in
-[CONTRIBUTING.md](https://github.com/FelixGSE/pypiano/blob/HEAD/CONTRIBUTING.md#the-sound-font).
+The bundled sound font holds the eight pianos of FluidR3_GM by Frank Wen, cut reproducibly from Debian's
+[fluid-soundfont](https://packages.debian.org/source/stable/fluid-soundfont) package with
+[sf2-cutter](https://github.com/FelixGSE/sf2-cutter) to a pinned checksum
+([details](https://github.com/FelixGSE/pypiano/blob/HEAD/CONTRIBUTING.md#the-sound-font)).
 
 ## Contributing
 
