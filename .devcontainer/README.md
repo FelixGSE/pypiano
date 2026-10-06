@@ -20,7 +20,6 @@ To add a system package, edit `Dockerfile` and rebuild (`Dev Containers: Rebuild
   for another OS and Python, doesn't replace the container's, or the other way around.
 - `.python-version` (3.14) makes uv use the same Python on the host as in the container.
 - **fluidsynth** / `libfluidsynth3` are installed so `mingus.midi.pyfluidsynth` can load the library.
-- **git-lfs** is installed for old commits, which stored the full sound font with Git LFS.
 - **sf2-cutter** builds the bundled piano sound font (`make soundfont`).
 
 ## Hooks and linters
