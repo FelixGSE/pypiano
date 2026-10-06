@@ -1,6 +1,6 @@
 [project]
 name = "pypiano"
-version = "0.2.0"
+version = "0.2.1"
 description = "Library to programmatically play piano"
 readme = "README.md"
 # The code is GPL; the bundled sound font, a subset of FluidR3_GM, is MIT (licenses/LICENSE-FluidR3_GM_sf2.txt)
