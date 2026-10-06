@@ -8,14 +8,16 @@
   "schedule": [
     "before 6am on monday"
   ],
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "7 days",
   "semanticCommits": "enabled",
   "constraintsFiltering": "strict",
   "osvVulnerabilityAlerts": true,
+  "automergeStrategy": "squash",
   "lockFileMaintenance": {
     "enabled": true,
+    "description": "Weekly, in the Monday window of the other updates",
     "schedule": [
-      "before 6am on the first day of the month"
+      "before 6am on monday"
     ]
   },
   "customManagers": [
@@ -31,6 +33,17 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Minor and patch updates, digest pins and lock file refreshes merge themselves once the required checks pass; major updates stay for review",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest",
+        "lockFileMaintenance"
+      ],
+      "automerge": true
+    },
     {
       "description": "pyproject.toml keeps minimum versions; the latest versions go into uv.lock",
       "matchManagers": [
