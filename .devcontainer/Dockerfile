@@ -19,7 +19,6 @@ RUN apt-get update \
         ca-certificates \
         curl \
         git \
-        git-lfs \
         gnupg \
         less \
         make \
@@ -106,8 +105,7 @@ ENV UV_PYTHON_INSTALL_DIR=/home/${USERNAME}/.local/share/uv/python \
 USER ${USERNAME}
 WORKDIR /workspaces/pypiano
 
-RUN uv python install 3.11 3.12 3.13 3.14 \
-    && git lfs install --skip-repo
+RUN uv python install 3.11 3.12 3.13 3.14
 
 ENV CLAUDE_CONFIG_DIR=/home/${USERNAME}/.claude
 RUN curl -fsSL https://claude.ai/install.sh | bash \
