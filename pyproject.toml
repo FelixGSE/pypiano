@@ -57,6 +57,8 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+# The sdist carries the tests, and the scripts some of them load, so packagers can run the test suite from it
+source-include = ["tests/**", "scripts/**"]
 
 [tool.ruff]
 line-length = 120
