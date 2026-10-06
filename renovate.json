@@ -11,10 +11,12 @@
   "semanticCommits": "enabled",
   "constraintsFiltering": "strict",
   "osvVulnerabilityAlerts": true,
+  "automergeStrategy": "squash",
   "lockFileMaintenance": {
     "enabled": true,
+    "description": "Weekly, in the same window as everything else: Renovate's workflow runs on Monday mornings only",
     "schedule": [
-      "before 6am on the first day of the month"
+      "before 6am on monday"
     ]
   },
   "customManagers": [
@@ -30,6 +32,17 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Minor and patch updates, digest pins and lock file refreshes merge themselves once the required checks pass; major updates stay for review",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest",
+        "lockFileMaintenance"
+      ],
+      "automerge": true
+    },
     {
       "description": "pyproject.toml keeps minimum versions; the latest versions go into uv.lock",
       "matchManagers": [
