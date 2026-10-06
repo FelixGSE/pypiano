@@ -23,7 +23,7 @@ jobs:
       # Keeps a release PR open that bumps the version and CHANGELOG.md from the conventional PR titles merged since the
       # last release. Merging it tags the release and creates the GitHub release.
       - id: release
-        uses: googleapis/release-please-action@v5
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
         with:
           # A personal access token: pull requests opened with GITHUB_TOKEN would not trigger CI
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
@@ -47,22 +47,22 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Build the sdist and wheel
         run: uv build
       # Signs which repository, commit and workflow built these files, so users can check with
       # gh attestation verify <file> --repo FelixGSE/pypiano
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4
         with:
           subject-path: |
             dist/*
             pypiano/sound_fonts/FluidR3_GM_pianos.sf2
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: dist
           path: dist/
@@ -84,12 +84,12 @@ jobs:
       # Trusted publishing: PyPI accepts this workflow's OIDC token instead of an API token
       id-token: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: dist
           path: dist/
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       - name: Publish
         # --check-url skips files PyPI already has, so a retried run uploads only what is missing
         run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/*

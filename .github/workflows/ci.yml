@@ -18,14 +18,14 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up uv
         # The ty hook runs from the project environment through uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - name: Run the hooks
-        uses: j178/prek-action@v3.0.0
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         env:
           # These two run from binaries in the devcontainer image; they get their own steps below
           SKIP: hadolint,dprint
@@ -35,7 +35,7 @@ jobs:
       - name: Lint the Dockerfile
         run: docker run --rm -v "$PWD:/repo:ro" -w /repo hadolint/hadolint:v2.15.1-debian hadolint .devcontainer/Dockerfile
       - name: Check Dockerfile formatting
-        uses: dprint/check@v2.5
+        uses: dprint/check@7dc032d8874778fc024f6f9b4a7e6d896782c330 # v2.5
         with:
           dprint-version: 0.58.0
 
@@ -47,14 +47,14 @@ jobs:
       matrix:
         python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install fluidsynth
         # mingus loads libfluidsynth when it is imported
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libfluidsynth3
       - name: Set up uv and Python ${{ matrix.python }}
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
@@ -72,14 +72,14 @@ jobs:
     name: Lowest dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install fluidsynth
         # mingus loads libfluidsynth when it is imported
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libfluidsynth3
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           enable-cache: true
       - name: Run all tests with the oldest allowed dependencies on the oldest Python
@@ -92,13 +92,13 @@ jobs:
     name: Integration (real audio)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install fluidsynth
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libfluidsynth3
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"
           enable-cache: true
@@ -117,7 +117,7 @@ jobs:
     env:
       PYPIANO_ARCHIVE_CACHE: ${{ github.workspace }}/.archive-cache
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install sf2-cutter
         # Same version and checksum as SF2_CUTTER_* in .devcontainer/Dockerfile
         env:
@@ -130,7 +130,7 @@ jobs:
           sudo tar -xzf "$RUNNER_TEMP/sf2-cutter.tar.gz" -C /usr/local/bin sf2-cutter
           sf2-cutter --version
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"
           enable-cache: true
@@ -139,7 +139,7 @@ jobs:
           UV_PYTHON_PREFERENCE: only-managed
         run: uv sync --locked
       - name: Restore Debian's fluid-soundfont archive
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ env.PYPIANO_ARCHIVE_CACHE }}
           # The script verifies the archive against Debian's checksum, cached or not
@@ -154,14 +154,14 @@ jobs:
     name: Mutation testing
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install fluidsynth
         # mingus loads libfluidsynth when it is imported
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libfluidsynth3
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10.2.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: "3.14"
           enable-cache: true
