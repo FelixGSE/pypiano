@@ -91,4 +91,5 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v10.2.0
       - name: Publish
-        run: uv publish --trusted-publishing always dist/*
+        # --check-url skips files PyPI already has, so a retried run uploads only what is missing
+        run: uv publish --trusted-publishing always --check-url https://pypi.org/simple/ dist/*
