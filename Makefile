@@ -10,7 +10,7 @@ COVERAGE_MIN ?= 100
 # Minimum mutation score in percent; make mutation fails below it
 MUTATION_MIN ?= 100
 
-.PHONY: help install soundfont soundfont-check lint test test-all test-lowest test-integration coverage mutation play record clean
+.PHONY: help install soundfont soundfont-check lint test test-all test-lowest test-package test-integration coverage mutation play record clean
 
 help: ## Show this help
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-17s %s\n", $$1, $$2}'
@@ -40,6 +40,14 @@ test-lowest: ## Run all tests with the oldest dependency versions pyproject.toml
 	uv pip install --quiet --python .venv-lowest --resolution lowest-direct --editable . --group dev
 	.venv-lowest/bin/python -m pytest -q -m "integration or not integration"
 
+test-package: ## Build the sdist and wheel, install the wheel into a fresh venv and check it outside the repository
+	@# The script runs with the venv's Python and imports pypiano from the installed wheel, not from the source tree
+	rm -rf dist .venv-package
+	uv build --quiet
+	uv venv --quiet --python $(lastword $(PYTHONS)) .venv-package
+	uv pip install --quiet --python .venv-package dist/*.whl
+	.venv-package/bin/python scripts/check_package.py
+
 test-integration: ## Run the tests that play real audio
 	uv run pytest -m integration
 
@@ -60,5 +68,5 @@ record: ## Record NOTE to OUTPUT (wav)
 	uv run scripts/demo.py record --note "$(NOTE)" --instrument "$(INSTRUMENT)" --output "$(OUTPUT)" --seconds $(RECORD_SECONDS)
 
 clean: ## Remove caches and demo recordings
-	rm -rf .pytest_cache .ruff_cache .coverage htmlcov dist mutants .venv-lowest "$(OUTPUT)"
+	rm -rf .pytest_cache .ruff_cache .coverage htmlcov dist mutants .venv-lowest .venv-package "$(OUTPUT)"
 	find . -name __pycache__ -type d -not -path './.venv/*' -prune -exec rm -rf {} +

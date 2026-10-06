@@ -17,6 +17,7 @@ make coverage          # pytest with coverage, fails below COVERAGE_MIN (default
 make mutation          # mutation testing: changes the code in small ways and fails if no test notices (MUTATION_MIN, default 100)
 make test-integration  # tests with real audio: records notes and runs the README example
 make test-lowest       # all tests with the oldest dependency versions pyproject.toml allows, on Python 3.11
+make test-package      # build the package, install the wheel into a fresh venv and record a note with it
 make soundfont         # build the piano sound font from Debian's FluidR3_GM if it is missing
 make soundfont-check   # rebuild it and compare byte by byte with the bundled file
 make play              # play a note via audio output (needs a sound device, so not inside the container)

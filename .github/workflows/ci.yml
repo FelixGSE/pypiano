@@ -88,6 +88,25 @@ jobs:
         # Keeps the minimum versions in pyproject.toml true; installs into a throwaway venv, not from uv.lock
         run: make test-lowest
 
+  package:
+    name: Built package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install fluidsynth
+        # The check records a note with the installed wheel
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libfluidsynth3
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+      - name: Build the package and check the installed wheel
+        env:
+          UV_PYTHON_PREFERENCE: only-managed
+        run: make test-package
+
   integration:
     name: Integration (real audio)
     runs-on: ubuntu-latest
