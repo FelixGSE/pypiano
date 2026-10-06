@@ -7,14 +7,14 @@
   "schedule": [
     "before 6am on monday"
   ],
-  "minimumReleaseAge": "3 days",
+  "minimumReleaseAge": "7 days",
   "semanticCommits": "enabled",
   "constraintsFiltering": "strict",
   "osvVulnerabilityAlerts": true,
   "automergeStrategy": "squash",
   "lockFileMaintenance": {
     "enabled": true,
-    "description": "Weekly, in the same window as everything else: Renovate's workflow runs on Monday mornings only",
+    "description": "Weekly, in the Monday window of the other updates",
     "schedule": [
       "before 6am on monday"
     ]

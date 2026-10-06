@@ -2,9 +2,10 @@ name: renovate
 
 on:
   schedule:
-    # Weekly, inside renovate.json's "before 6am on monday" window; run it from the Actions tab to act on ticked
+    # Daily, so security updates, which ignore renovate.json's schedule and minimumReleaseAge, come within a day.
+    # Ordinary updates still wait for the "before 6am on monday" window. Run it from the Actions tab to act on ticked
     # dependency dashboard checkboxes in between
-    - cron: "0 5 * * 1"
+    - cron: "0 5 * * *"
   workflow_dispatch:
     inputs:
       dry-run:
