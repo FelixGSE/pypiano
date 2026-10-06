@@ -2,7 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended",
-    ":enablePreCommit"
+    ":enablePreCommit",
+    "helpers:pinGitHubActionDigests"
   ],
   "schedule": [
     "before 6am on monday"
