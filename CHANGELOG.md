@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file, and this projec
 [release-please](https://github.com/googleapis/release-please) from the
 [Conventional Commits](https://www.conventionalcommits.org/) titles of the merged pull requests.
 
+## [0.2.1](https://github.com/FelixGSE/pypiano/compare/v0.2.0...v0.2.1) (2026-10-06)
+
+
+### Dependencies
+
+* update the locked development dependencies (hypothesis 6.168.5, platformdirs 4.12.3) ([d47a3fc](https://github.com/FelixGSE/pypiano/commit/d47a3fc02bbb73ebbc50aa1aeae849fae66a5193))
+
 ## [0.2.0](https://github.com/FelixGSE/pypiano/compare/v0.1.2...v0.2.0) (2026-10-05)
 
 
