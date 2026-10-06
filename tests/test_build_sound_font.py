@@ -11,6 +11,7 @@ from types import ModuleType
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "build_sound_font.py"
 FULL_SOUND_FONT = b"fake full sound font"
@@ -196,6 +197,39 @@ def test_build_should_download_again_when_the_cached_archive_is_corrupt(script: 
     # Then
     script.download.assert_called_once()
     assert script.SOUND_FONT_PATH.read_bytes() == PIANOS
+
+
+@pytest.mark.parametrize("failure", ["unreachable", "another file"])
+def test_build_should_use_the_next_source_when_debians_archive_fails(script: ModuleType, failure: str) -> None:
+    # Given Debian's archive is unreachable, or serves a file with another checksum
+    serve_archive = script.download.side_effect
+
+    def download(url: str, target: Path) -> None:
+        if url != script.ARCHIVE_URLS[0]:
+            serve_archive(url, target)
+        elif failure == "unreachable":
+            raise requests.ConnectionError
+        else:
+            target.write_bytes(b"another file")
+
+    script.download.side_effect = download
+    # When
+    script.main([])
+    # Then the archive comes from snapshot.debian.org, and the sound font is built from it
+    assert [call.args[0] for call in script.download.call_args_list] == list(script.ARCHIVE_URLS)
+    assert script.SOUND_FONT_PATH.read_bytes() == PIANOS
+
+
+def test_build_should_raise_the_last_sources_error_when_no_source_has_the_archive(
+    monkeypatch: pytest.MonkeyPatch, script: ModuleType
+) -> None:
+    # Given every source serves a file with another checksum
+    monkeypatch.setattr(script, "ARCHIVE_SHA256", sha256(b"something else"))
+    # When / Then every source is tried once, and nothing is installed
+    with pytest.raises(script.ChecksumError):
+        script.install_sound_font(script.SOUND_FONT_PATH, script.LICENSE_PATH)
+    assert [call.args[0] for call in script.download.call_args_list] == list(script.ARCHIVE_URLS)
+    assert not script.SOUND_FONT_PATH.exists()
 
 
 @pytest.mark.parametrize(

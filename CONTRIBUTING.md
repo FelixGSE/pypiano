@@ -47,7 +47,8 @@ with the full font.
 
 `scripts/build_sound_font.py` (`make soundfont`) builds the file:
 
-1. it downloads Debian's source archive and verifies it against the checksum Debian publishes,
+1. it downloads Debian's source archive and verifies it against the checksum Debian publishes; once Debian's archive
+   no longer has this version, it comes from snapshot.debian.org, which keeps every file Debian ever published,
 2. it extracts `FluidR3_GM.sf2` and verifies its checksum,
 3. it cuts the presets listed in `scripts/sound_font_recipe.toml` out with
    [sf2-cutter](https://github.com/FelixGSE/sf2-cutter), whose release is pinned and checksum-verified in

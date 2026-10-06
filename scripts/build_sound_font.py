@@ -2,7 +2,9 @@
 
 PyPiano bundles only the eight General MIDI pianos (bank 0, programs 0 to 7) of FluidR3_GM. This script
 
-1. downloads Debian's fluid-soundfont source archive and verifies it against the checksum Debian publishes,
+1. downloads Debian's fluid-soundfont source archive and verifies it against the checksum Debian publishes. If
+   Debian's archive no longer has this version, it comes from snapshot.debian.org, which keeps every file Debian
+   ever published,
 2. extracts FluidR3_GM.sf2 and verifies it against its known checksum,
 3. cuts the eight pianos out with sf2-cutter (version pinned in .devcontainer/Dockerfile), as described
    in scripts/sound_font_recipe.toml,
@@ -29,8 +31,13 @@ from pathlib import Path
 import requests
 from tqdm import tqdm
 
-# fluid-soundfont 3.1, checksum from Debian's fluid-soundfont_3.1-6.dsc
-ARCHIVE_URL = "https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont_3.1.orig.tar.gz"
+# fluid-soundfont 3.1, checksum from Debian's fluid-soundfont_3.1-6.dsc. The sources are tried in order: Debian's
+# archive, then snapshot.debian.org, which serves every file Debian ever published by its sha1 and so keeps working once
+# Debian ships a newer version
+ARCHIVE_URLS = (
+    "https://deb.debian.org/debian/pool/main/f/fluid-soundfont/fluid-soundfont_3.1.orig.tar.gz",
+    "https://snapshot.debian.org/file/433118a6776867176ae710d1e3370540be30be0a",
+)
 ARCHIVE_SHA256 = "2621acaa1c78e4abdb24bdd163230cc577e61276936d6aa6e3180582142f0343"
 SOUND_FONT_MEMBER = "fluid-soundfont-3.1/FluidR3_GM.sf2"
 LICENSE_MEMBER = "fluid-soundfont-3.1/COPYING"
@@ -100,13 +107,35 @@ def cached_archive() -> Path:
     ARCHIVE_CACHE.mkdir(parents=True, exist_ok=True)
     partial = archive.with_name(archive.name + ".part")
     try:
-        logger.info("Downloading %s", ARCHIVE_URL)
-        download(ARCHIVE_URL, partial)
-        verify(partial, ARCHIVE_SHA256)
+        download_archive(partial)
         partial.replace(archive)
     finally:
         partial.unlink(missing_ok=True)
     return archive
+
+
+def download_archive(target: Path) -> None:
+    """Download the source archive to target from the first of ARCHIVE_URLS that has the file with ARCHIVE_SHA256.
+
+    Raises:
+        requests.RequestException, ChecksumError: As the last source raised them, when no source has the archive
+
+    """
+    for url in ARCHIVE_URLS[:-1]:
+        try:
+            download_verified(url, target)
+        except (requests.RequestException, ChecksumError) as error:
+            logger.warning("Could not get the archive from %s (%s); trying the next source", url, error)
+        else:
+            return
+    download_verified(ARCHIVE_URLS[-1], target)
+
+
+def download_verified(url: str, target: Path) -> None:
+    """Download the source archive from url to target and verify it."""
+    logger.info("Downloading %s", url)
+    download(url, target)
+    verify(target, ARCHIVE_SHA256)
 
 
 def extract(archive: Path, member: str, target: Path) -> None:
